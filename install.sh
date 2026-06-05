@@ -114,6 +114,17 @@ if [ ! -f .env ]; then
     smtp_from=""
   fi
 
+  # Prompt for Telegram configuration
+  echo -e "${YELLOW}--- Cấu hình Telegram OTP khi Đăng nhập (2FA) ---${NC}"
+  read -p "Bạn muốn sử dụng Telegram OTP để bảo mật 2 lớp? (y/n) [mặc định: n]: " use_telegram_otp
+  if [[ $use_telegram_otp =~ ^[Yy]$ ]]; then
+    read -p "Nhập Telegram Bot Token: " telegram_token
+    read -p "Nhập Telegram Chat ID: " telegram_chat_id
+  else
+    telegram_token=""
+    telegram_chat_id=""
+  fi
+
   # Write variables to .env
   cat <<EOT > .env
 PORT=$app_port
@@ -132,6 +143,9 @@ SMTP_PORT=$smtp_port
 SMTP_USER=$smtp_user
 SMTP_PASSWORD=$smtp_pass
 SMTP_FROM="$smtp_from"
+
+TELEGRAM_BOT_TOKEN=$telegram_token
+TELEGRAM_CHAT_ID=$telegram_chat_id
 EOT
   echo -e "${GREEN}[+] Đã lưu cấu hình vào file .env.${NC}"
 else

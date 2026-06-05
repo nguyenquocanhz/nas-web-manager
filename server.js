@@ -10,6 +10,7 @@ const { execSync } = require('child_process');
 const session = require('express-session');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const https = require('https');
 
 function md5(text) {
     return crypto.createHash('md5').update(text).digest('hex');
@@ -34,6 +35,21 @@ function getMailTransporter() {
             user,
             pass
         }
+    });
+}
+
+// Send OTP via Telegram Bot
+function sendTelegramOTP(token, chatId, otp, username) {
+    const message = encodeURIComponent(`🔐 [NAS Web Manager] Mã xác thực OTP đăng nhập của bạn (tài khoản: ${username}) là: ${otp}\nMã này có hiệu lực trong 5 phút.`);
+    const url = `https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${message}`;
+    https.get(url, (res) => {
+        let data = '';
+        res.on('data', (chunk) => data += chunk);
+        res.on('end', () => {
+            console.log('[INFO] Telegram OTP message sent response: ' + data);
+        });
+    }).on('error', (err) => {
+        console.error('[ERROR] Failed to send Telegram OTP: ' + err.message);
     });
 }
 
@@ -644,10 +660,62 @@ app.post('/api/auth/login', async (req, res) => {
         if (!valid) {
             return res.status(401).json({ error: 'Invalid username or password' });
         }
+
+        // Check if Telegram OTP is configured
+        const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+        const tgChatId = process.env.TELEGRAM_CHAT_ID;
+
+        if (tgToken && tgChatId) {
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            const expires = Date.now() + 300000; // 5 minutes
+
+            req.session.tempUser = {
+                id: user.id,
+                username: user.username,
+                otp: otp,
+                expires: expires
+            };
+
+            console.log(`[INFO] Generated Telegram OTP: ${otp} for user: ${user.username}`);
+            sendTelegramOTP(tgToken, tgChatId, otp, user.username);
+            return res.json({ success: true, otpRequired: true });
+        }
         
         req.session.userId = user.id;
         req.session.username = user.username;
-        res.json({ success: true, username: user.username });
+        res.json({ success: true, otpRequired: false, username: user.username });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Auth: Verify OTP
+app.post('/api/auth/verify-otp', async (req, res) => {
+    try {
+        const { otp } = req.body;
+        if (!otp) {
+            return res.status(400).json({ error: 'OTP is required' });
+        }
+
+        const temp = req.session.tempUser;
+        if (!temp) {
+            return res.status(400).json({ error: 'No active login session' });
+        }
+
+        if (Date.now() > temp.expires) {
+            delete req.session.tempUser;
+            return res.status(400).json({ error: 'OTP has expired' });
+        }
+
+        if (temp.otp !== otp.trim()) {
+            return res.status(400).json({ error: 'Invalid OTP code' });
+        }
+
+        req.session.userId = temp.id;
+        req.session.username = temp.username;
+        delete req.session.tempUser;
+
+        res.json({ success: true, username: req.session.username });
     } catch(e) {
         res.status(500).json({ error: e.message });
     }
