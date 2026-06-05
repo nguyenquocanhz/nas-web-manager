@@ -1,0 +1,2218 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NAS File Manager</title>
+    <meta name="description" content="Premium NAS Web File Manager - Browse, upload, download files">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #101628;
+            --bg-surface: #151b2e;
+            --bg-card: #1a2240;
+            --bg-card-hover: #1f2a50;
+            --bg-input: #0d1220;
+            --accent: #4ecca3;
+            --accent-hover: #45b892;
+            --accent-purple: #7c5cbf;
+            --accent-blue: #5b8def;
+            --accent-red: #ff6b6b;
+            --accent-orange: #ffa46b;
+            --accent-yellow: #ffd93d;
+            --text-primary: #e8eaf0;
+            --text-secondary: #8892a8;
+            --text-muted: #5a6478;
+            --border: rgba(255,255,255,0.06);
+            --border-active: rgba(78,204,163,0.4);
+            --glass: rgba(21,27,46,0.85);
+            --shadow: 0 8px 32px rgba(0,0,0,0.4);
+            --shadow-lg: 0 16px 48px rgba(0,0,0,0.5);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-lg: 16px;
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+        /* Layout */
+        .app { display: flex; height: 100vh; }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            transition: var(--transition);
+        }
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .sidebar-logo .icon-circle {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-purple));
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; color: white;
+        }
+        .sidebar-logo h1 {
+            font-size: 18px; font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent-blue));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .sidebar-logo .version {
+            font-size: 11px; color: var(--text-muted); font-weight: 400;
+        }
+        /* Storage Bar */
+        .storage-info {
+            background: var(--bg-card);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+        }
+        .storage-bar {
+            height: 6px; background: var(--bg-input);
+            border-radius: 3px; overflow: hidden; margin: 8px 0;
+        }
+        .storage-bar-fill {
+            height: 100%; border-radius: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-purple));
+            transition: width 0.8s ease;
+        }
+        .storage-text { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); }
+        
+        /* Sidebar Nav */
+        .sidebar-nav { padding: 12px; flex: 1; overflow-y: auto; }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; border-radius: var(--radius-sm);
+            color: var(--text-secondary); cursor: pointer;
+            transition: var(--transition); font-size: 13px; font-weight: 500;
+            margin-bottom: 2px;
+        }
+        .nav-item:hover { background: var(--bg-card); color: var(--text-primary); }
+        .nav-item.active { background: rgba(78,204,163,0.1); color: var(--accent); }
+        .nav-item .material-icons-round { font-size: 20px; }
+        .nav-section { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); padding: 16px 12px 6px; }
+
+        /* Main Content */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        
+        /* Top Bar */
+        .topbar {
+            padding: 12px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 16px;
+            background: var(--bg-secondary);
+            flex-shrink: 0;
+        }
+        .breadcrumb { display: flex; align-items: center; gap: 4px; flex: 1; flex-wrap: wrap; }
+        .breadcrumb-item {
+            font-size: 13px; color: var(--text-secondary);
+            cursor: pointer; padding: 4px 8px; border-radius: 6px;
+            transition: var(--transition); font-weight: 500;
+            white-space: nowrap;
+        }
+        .breadcrumb-item:hover { background: var(--bg-card); color: var(--text-primary); }
+        .breadcrumb-item.active { color: var(--accent); }
+        .breadcrumb-sep { color: var(--text-muted); font-size: 12px; }
+        
+        /* Search */
+        .search-box {
+            position: relative; width: 280px;
+        }
+        .search-box input {
+            width: 100%; padding: 8px 12px 8px 36px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); color: var(--text-primary);
+            font-size: 13px; font-family: inherit; outline: none;
+            transition: var(--transition);
+        }
+        .search-box input:focus { border-color: var(--border-active); }
+        .search-box input::placeholder { color: var(--text-muted); }
+        .search-box .material-icons-round {
+            position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+            font-size: 18px; color: var(--text-muted);
+        }
+
+        /* Toolbar */
+        .toolbar {
+            padding: 10px 24px;
+            display: flex; align-items: center; gap: 8px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .toolbar-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 7px 14px; border-radius: var(--radius-sm);
+            border: 1px solid var(--border); background: var(--bg-card);
+            color: var(--text-secondary); cursor: pointer;
+            font-size: 12px; font-family: inherit; font-weight: 500;
+            transition: var(--transition);
+        }
+        .toolbar-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); border-color: var(--border-active); }
+        .toolbar-btn.primary { background: var(--accent); color: #0a0e1a; border-color: var(--accent); font-weight: 600; }
+        .toolbar-btn.primary:hover { background: var(--accent-hover); }
+        .toolbar-btn .material-icons-round { font-size: 16px; }
+        .toolbar-spacer { flex: 1; }
+        .toolbar-info { font-size: 12px; color: var(--text-muted); }
+        .view-toggle {
+            display: flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;
+        }
+        .view-toggle button {
+            padding: 6px 10px; background: var(--bg-card); border: none;
+            color: var(--text-muted); cursor: pointer; transition: var(--transition);
+            display: flex; align-items: center;
+        }
+        .view-toggle button.active { background: var(--accent); color: #0a0e1a; }
+        .view-toggle button:hover:not(.active) { background: var(--bg-card-hover); color: var(--text-primary); }
+
+        /* File Grid */
+        .file-area {
+            flex: 1; overflow-y: auto; padding: 20px 24px;
+        }
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+        }
+        .file-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            min-height: 130px;
+            justify-content: center;
+        }
+        .file-card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-active);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+        .file-card.selected {
+            border-color: var(--accent);
+            background: rgba(78,204,163,0.08);
+        }
+        .file-card .file-icon {
+            font-size: 42px;
+            transition: var(--transition);
+        }
+        .file-card .file-icon.folder { color: var(--accent-orange); }
+        .file-card .file-icon.image { color: var(--accent-purple); }
+        .file-card .file-icon.video { color: var(--accent-red); }
+        .file-card .file-icon.audio { color: var(--accent-yellow); }
+        .file-card .file-icon.text { color: var(--accent-blue); }
+        .file-card .file-icon.archive { color: var(--accent-orange); }
+        .file-card .file-icon.pdf { color: var(--accent-red); }
+        .file-card .file-icon.default { color: var(--text-muted); }
+        .file-card .file-name {
+            font-size: 12px; font-weight: 500;
+            text-align: center; word-break: break-word;
+            line-height: 1.4;
+            display: -webkit-box; -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .file-card .file-size {
+            font-size: 10px; color: var(--text-muted);
+        }
+        .file-card .file-thumb {
+            width: 100%; height: 80px; object-fit: cover;
+            border-radius: var(--radius-sm);
+        }
+
+        /* File List */
+        .file-list { display: flex; flex-direction: column; gap: 2px; }
+        .file-list-header {
+            display: grid;
+            grid-template-columns: 1fr 100px 140px 80px;
+            padding: 8px 16px;
+            font-size: 11px; font-weight: 600;
+            color: var(--text-muted); text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+        .file-list-item {
+            display: grid;
+            grid-template-columns: 1fr 100px 140px 80px;
+            padding: 10px 16px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition);
+            align-items: center;
+        }
+        .file-list-item:hover { background: var(--bg-card); }
+        .file-list-item.selected { background: rgba(78,204,163,0.08); }
+        .file-list-name {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 13px; font-weight: 500;
+            overflow: hidden;
+        }
+        .file-list-name .material-icons-round { font-size: 22px; flex-shrink: 0; }
+        .file-list-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .file-list-item .file-meta {
+            font-size: 12px; color: var(--text-secondary);
+        }
+        .file-list-actions {
+            display: flex; gap: 4px; opacity: 0; transition: var(--transition);
+        }
+        .file-list-item:hover .file-list-actions { opacity: 1; }
+        .file-list-actions button {
+            width: 28px; height: 28px;
+            border: none; background: var(--bg-surface);
+            color: var(--text-secondary); border-radius: 6px;
+            cursor: pointer; display: flex;
+            align-items: center; justify-content: center;
+            transition: var(--transition);
+        }
+        .file-list-actions button:hover { background: var(--accent); color: #0a0e1a; }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-lg);
+            padding: 48px; text-align: center;
+            transition: var(--transition);
+            margin: 20px 0;
+            display: none;
+        }
+        .upload-zone.active {
+            display: block;
+        }
+        .upload-zone.dragover {
+            border-color: var(--accent);
+            background: rgba(78,204,163,0.05);
+        }
+        .upload-zone .material-icons-round { font-size: 48px; color: var(--accent); margin-bottom: 12px; }
+        .upload-zone h3 { font-size: 16px; margin-bottom: 4px; }
+        .upload-zone p { font-size: 13px; color: var(--text-secondary); }
+
+        /* Transfer Progress Panel */
+        .transfer-progress {
+            position: fixed; bottom: 24px; right: 24px;
+            background: var(--glass); backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 16px;
+            min-width: 360px; max-width: 420px; box-shadow: var(--shadow-lg);
+            z-index: 1000; display: none;
+        }
+        .transfer-progress.show { display: block; animation: slideUp 0.3s ease; }
+        .transfer-progress-header {
+            display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 8px;
+        }
+        .transfer-progress-header h4 { font-size: 13px; font-weight: 600; }
+        .transfer-stats {
+            display: grid; grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px; margin-bottom: 10px;
+        }
+        .transfer-stat {
+            background: var(--bg-card); border-radius: var(--radius-sm);
+            padding: 8px; text-align: center;
+        }
+        .transfer-stat .stat-value {
+            font-size: 16px; font-weight: 700; line-height: 1.2;
+            background: linear-gradient(135deg, var(--accent), var(--accent-blue));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .transfer-stat .stat-label {
+            font-size: 9px; color: var(--text-muted); text-transform: uppercase;
+            letter-spacing: 0.5px; margin-top: 2px;
+        }
+        .transfer-main-bar {
+            height: 6px; background: var(--bg-input);
+            border-radius: 3px; overflow: hidden; margin: 8px 0;
+        }
+        .transfer-main-bar-fill {
+            height: 100%; border-radius: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-purple));
+            transition: width 0.3s ease;
+        }
+        .transfer-file-list { max-height: 120px; overflow-y: auto; }
+        .transfer-file-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 0; font-size: 11px;
+        }
+        .transfer-file-item .progress-bar {
+            flex: 1; height: 3px; background: var(--bg-input);
+            border-radius: 2px; overflow: hidden;
+        }
+        .transfer-file-item .progress-bar-fill {
+            height: 100%; background: var(--accent);
+            border-radius: 2px; transition: width 0.3s ease;
+        }
+        .transfer-close {
+            background: none; border: none; color: var(--text-muted);
+            cursor: pointer; padding: 2px; border-radius: 4px;
+            transition: var(--transition); display: flex;
+        }
+        .transfer-close:hover { color: var(--text-primary); background: var(--bg-card); }
+        /* Download Progress */
+        .download-progress {
+            position: fixed; bottom: 24px; left: 24px;
+            background: var(--glass); backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 14px 18px;
+            min-width: 300px; box-shadow: var(--shadow-lg);
+            z-index: 1000; display: none;
+        }
+        .download-progress.show { display: flex; gap: 12px; align-items: center; animation: slideUp 0.3s ease; }
+        .download-info { flex: 1; }
+        .download-info .dl-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+        .download-info .dl-stats { font-size: 11px; color: var(--text-secondary); display: flex; gap: 10px; }
+        .download-info .dl-stats .dl-speed { color: var(--accent); font-weight: 600; }
+        .download-bar { width: 100%; height: 4px; background: var(--bg-input); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+        .download-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); border-radius: 2px; transition: width 0.2s ease; }
+        /* Transfer History */
+        .transfer-history {
+            margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px;
+        }
+        .transfer-history-title { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .transfer-history-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 3px 0; font-size: 11px;
+        }
+        .transfer-history-item .th-name { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+        .transfer-history-item .th-speed { color: var(--accent); font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+            z-index: 2000; display: none;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.show { display: flex; animation: fadeIn 0.2s ease; }
+        .modal {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px; min-width: 400px;
+            max-width: 90vw; max-height: 90vh;
+            box-shadow: var(--shadow-lg);
+            overflow-y: auto;
+        }
+        .modal h3 { font-size: 16px; margin-bottom: 16px; font-weight: 600; }
+        .modal input[type='text'] {
+            width: 100%; padding: 10px 14px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); color: var(--text-primary);
+            font-size: 14px; font-family: inherit; outline: none;
+            transition: var(--transition);
+        }
+        .modal input[type='text']:focus { border-color: var(--border-active); }
+        .modal-actions {
+            display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;
+        }
+        .modal-actions button {
+            padding: 8px 20px; border-radius: var(--radius-sm);
+            border: 1px solid var(--border); background: var(--bg-card);
+            color: var(--text-primary); cursor: pointer;
+            font-size: 13px; font-family: inherit; font-weight: 500;
+            transition: var(--transition);
+        }
+        .modal-actions button.primary { background: var(--accent); color: #0a0e1a; border-color: var(--accent); font-weight: 600; }
+        .modal-actions button:hover { opacity: 0.85; }
+
+        /* Preview Modal */
+        .preview-modal {
+            min-width: 600px; max-width: 95vw;
+        }
+        .preview-modal .preview-content {
+            margin-top: 12px;
+            max-height: 70vh; overflow: auto;
+        }
+        .preview-modal img { max-width: 100%; border-radius: var(--radius-sm); }
+        .preview-modal video { width: 100%; border-radius: var(--radius-sm); }
+        .preview-modal pre {
+            background: var(--bg-input); padding: 16px;
+            border-radius: var(--radius-sm); overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px; line-height: 1.6;
+            color: var(--accent);
+        }
+
+        /* Context Menu */
+        .context-menu {
+            position: fixed;
+            background: var(--glass); backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 6px;
+            min-width: 200px; box-shadow: var(--shadow-lg);
+            z-index: 3000; display: none;
+        }
+        .context-menu.show { display: block; animation: fadeIn 0.15s ease; }
+        .context-menu-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 12px; border-radius: 6px;
+            font-size: 13px; cursor: pointer;
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+        .context-menu-item:hover { background: var(--bg-card); color: var(--text-primary); }
+        .context-menu-item.danger:hover { background: rgba(255,107,107,0.1); color: var(--accent-red); }
+        .context-menu-item .material-icons-round { font-size: 18px; }
+        .context-menu-divider { height: 1px; background: var(--border); margin: 4px 8px; }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center; padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        .empty-state .material-icons-round { font-size: 64px; margin-bottom: 16px; opacity: 0.3; }
+        .empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--text-secondary); }
+        .empty-state p { font-size: 13px; }
+
+        /* Toast */
+        .toast-container {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%); z-index: 5000;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .toast {
+            background: var(--glass); backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 12px 20px;
+            font-size: 13px; box-shadow: var(--shadow);
+            animation: slideUp 0.3s ease;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .toast.success { border-left: 3px solid var(--accent); }
+        .toast.error { border-left: 3px solid var(--accent-red); }
+
+        /* Drag over body */
+        .drag-overlay {
+            position: fixed; inset: 0;
+            background: rgba(78,204,163,0.05);
+            border: 3px dashed var(--accent);
+            z-index: 4000; display: none;
+            align-items: center; justify-content: center;
+            pointer-events: none;
+        }
+        .drag-overlay.show { display: flex; }
+
+        /* Animations */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Loading Skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: var(--radius);
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* Mobile */
+        .sidebar-toggle { display: none; }
+        @media (max-width: 768px) {
+            .sidebar { position: fixed; left: -260px; z-index: 100; height: 100vh; }
+            .sidebar.open { left: 0; }
+            .sidebar-toggle { display: flex; }
+            .search-box { width: 160px; }
+            .file-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+            .file-list-header, .file-list-item { grid-template-columns: 1fr 80px 60px; }
+            .file-list-item .file-meta:nth-child(3) { display: none; }
+            .modal { min-width: unset; width: 95vw; }
+            .preview-modal { min-width: unset; }
+        }
+
+        /* Language Switcher */
+        .lang-switcher {
+            position: relative;
+            margin-left: auto;
+            margin-right: 12px;
+        }
+        .lang-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 12px; border-radius: var(--radius-sm);
+            border: 1px solid var(--border); background: var(--bg-card);
+            color: var(--text-primary); cursor: pointer;
+            font-size: 13px; font-weight: 500;
+            transition: var(--transition);
+        }
+        .lang-btn:hover { background: var(--bg-card-hover); border-color: var(--border-active); }
+        .lang-dropdown {
+            position: absolute; right: 0; top: calc(100% + 6px);
+            background: var(--glass); backdrop-filter: blur(20px);
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-lg); display: none; z-index: 1000;
+            min-width: 130px; padding: 4px;
+        }
+        .lang-dropdown.show { display: block; animation: fadeIn 0.15s ease; }
+        .lang-option {
+            padding: 8px 12px; border-radius: 4px; cursor: pointer;
+            font-size: 13px; color: var(--text-secondary);
+            transition: var(--transition); display: flex; align-items: center; gap: 8px;
+        }
+        .lang-option:hover { background: var(--bg-card); color: var(--text-primary); }
+
+        /* System Status Dashboard Modal */
+        .system-status-dashboard {
+            width: 100%;
+            padding: 4px;
+        }
+        .system-header {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 20px; border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+        .system-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+            margin-bottom: 24px;
+        }
+        .system-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 14px;
+            display: flex; align-items: center; gap: 12px;
+            text-align: left;
+        }
+        .system-card.full-width {
+            grid-column: span 2;
+        }
+        .system-card .card-icon {
+            font-size: 24px; color: var(--accent-blue);
+            background: rgba(91,141,239,0.1); width: 44px; height: 44px;
+            border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .system-card:nth-child(1) .card-icon { color: var(--accent); background: rgba(78,204,163,0.1); }
+        .system-card:nth-child(3) .card-icon { color: var(--accent-orange); background: rgba(255,164,107,0.1); }
+        .card-content { display: flex; flex-direction: column; overflow: hidden; }
+        .card-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .card-val { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-top: 2px; }
+        .path-val { font-family: 'JetBrains Mono', monospace; font-size: 11px; word-break: break-all; }
+        
+        .system-storage-section {
+            background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); padding: 16px;
+            text-align: left;
+        }
+        .storage-dashboard-bar {
+            height: 12px; background: var(--bg-input);
+            border-radius: 6px; overflow: hidden; display: flex;
+            margin-bottom: 16px;
+        }
+        .storage-db-fill { height: 100%; transition: width 0.5s ease; }
+        .storage-db-fill.used { background: linear-gradient(90deg, var(--accent), var(--accent-purple)); }
+        .storage-db-fill.free { background: rgba(255,255,255,0.1); }
+        
+        .storage-details-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+        }
+        .storage-detail-item {
+            display: flex; gap: 8px; align-items: flex-start;
+        }
+        .storage-detail-item .dot {
+            width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0;
+        }
+        .storage-detail-item.used .dot { background: var(--accent); }
+        .storage-detail-item.free .dot { background: var(--text-muted); }
+        .storage-detail-item.total .dot { background: var(--accent-blue); }
+        .detail-info { display: flex; flex-direction: column; }
+        .detail-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; }
+        .detail-val { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-top: 2px; }
+        .detail-val .pct { font-size: 10px; color: var(--text-muted); font-weight: normal; }
+        /* Media Player Overlay */
+        .media-player-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(4,6,15,0.92); backdrop-filter: blur(18px);
+            display: flex; flex-direction: column;
+            z-index: 2500; opacity: 0; pointer-events: none;
+            transition: var(--transition);
+        }
+        .media-player-overlay.show { opacity: 1; pointer-events: auto; }
+        
+        .media-player-close {
+            position: absolute; right: 24px; top: 24px;
+            width: 44px; height: 44px; border-radius: 50%;
+            background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+            color: var(--text-primary); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: var(--transition); z-index: 2600;
+        }
+        .media-player-close:hover { background: var(--accent-red); color: white; border-color: var(--accent-red); transform: rotate(90deg); }
+        
+        .media-player-header {
+            padding: 24px 80px 12px 24px; text-align: left;
+            border-bottom: 1px solid var(--border); z-index: 2550;
+        }
+        .media-player-title { font-size: 16px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .media-player-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+        
+        .media-player-body {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            overflow: hidden; position: relative; z-index: 2510;
+            padding: 24px;
+        }
+        .media-player-content {
+            max-width: 100%; max-height: 100%;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .media-player-content img {
+            max-width: 90vw; max-height: 70vh; object-fit: contain;
+            border-radius: var(--radius-sm); user-select: none;
+            box-shadow: var(--shadow-lg); transition: transform 0.1s ease;
+            cursor: grab;
+        }
+        .media-player-content img:active { cursor: grabbing; }
+        .media-player-content video {
+            max-width: 90vw; max-height: 70vh;
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-lg); outline: none;
+        }
+        .media-player-content audio {
+            width: 400px;
+        }
+        
+        /* Floating Navigation */
+        .media-nav {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 56px; height: 56px; border-radius: 50%;
+            background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+            color: var(--text-primary); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: var(--transition); z-index: 2580;
+        }
+        .media-nav:hover { background: var(--accent); color: #0a0e1a; border-color: var(--accent); scale: 1.05; }
+        .media-nav.prev { left: 24px; }
+        .media-nav.next { right: 24px; }
+        .media-nav:disabled { opacity: 0.3; pointer-events: none; }
+        
+        /* Bottom Control Bar */
+        .media-player-controls {
+            padding: 16px 24px; border-top: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center; gap: 16px;
+            background: rgba(10,14,26,0.6); backdrop-filter: blur(10px);
+            z-index: 2550;
+        }
+        
+        .control-group { display: flex; align-items: center; gap: 8px; }
+        .control-btn {
+            background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+            color: var(--text-secondary); padding: 8px 14px; border-radius: var(--radius-sm);
+            cursor: pointer; display: flex; align-items: center; gap: 6px;
+            font-size: 13px; font-weight: 500; transition: var(--transition);
+        }
+        .control-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); border-color: var(--border-active); }
+        .control-btn.active { background: var(--accent); color: #0a0e1a; border-color: var(--accent); }
+        .control-btn .material-icons-round { font-size: 18px; }
+        
+        /* Speed dropdown */
+        .speed-selector { position: relative; }
+        .speed-dropdown {
+            position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+            background: var(--bg-surface); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
+            display: none; padding: 4px; min-width: 80px; z-index: 2700;
+        }
+        .speed-dropdown.show { display: block; }
+        .speed-opt {
+            padding: 8px 12px; font-size: 12px; cursor: pointer; border-radius: 4px;
+            color: var(--text-secondary); text-align: center;
+        }
+        .speed-opt:hover { background: var(--bg-card); color: var(--text-primary); }
+        .speed-opt.active { background: var(--accent); color: #0a0e1a; }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="icon-circle"><span class="material-icons-round">dns</span></div>
+                    <div>
+                        <h1>NAS Manager</h1>
+                        <div class="version">v1.0 — Homelab</div>
+                    </div>
+                </div>
+                <div class="storage-info">
+                    <div style="font-size:12px;font-weight:600;" data-i18n="storage">💾 Dung lượng</div>
+                    <div class="storage-bar"><div class="storage-bar-fill" id="storageBar" style="width:0%"></div></div>
+                    <div class="storage-text">
+                        <span id="storageUsed">--</span>
+                        <span id="storageFree">--</span>
+                    </div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section" data-i18n="functions">Chức năng</div>
+                <div class="nav-item active" onclick="navigateTo('')">
+                    <span class="material-icons-round">folder</span> <span data-i18n="allFiles">Tất cả tệp</span>
+                </div>
+                <div class="nav-item" onclick="toggleUploadZone()">
+                    <span class="material-icons-round">cloud_upload</span> <span data-i18n="upload">Tải lên</span>
+                </div>
+                <div class="nav-section" data-i18n="filters">Bộ lọc</div>
+                <div class="nav-item" onclick="filterByType('image')">
+                    <span class="material-icons-round">image</span> <span data-i18n="images">Hình ảnh</span>
+                </div>
+                <div class="nav-item" onclick="filterByType('video')">
+                    <span class="material-icons-round">movie</span> <span data-i18n="videos">Video</span>
+                </div>
+                <div class="nav-item" onclick="filterByType('audio')">
+                    <span class="material-icons-round">music_note</span> <span data-i18n="audio">Nhạc</span>
+                </div>
+                <div class="nav-item" onclick="filterByType('text')">
+                    <span class="material-icons-round">description</span> <span data-i18n="documents">Tài liệu</span>
+                </div>
+                <div class="nav-item" onclick="filterByType('archive')">
+                    <span class="material-icons-round">archive</span> <span data-i18n="archives">Nén</span>
+                </div>
+                <div class="nav-section" data-i18n="system">Hệ thống</div>
+                <div class="nav-item" id="navHostname" onclick="showSystemStatus()" style="cursor:pointer">
+                    <span class="material-icons-round">computer</span>
+                    <div style="display:flex; flex-direction:column; text-align:left;">
+                        <span id="hostname" style="font-weight:600">--</span>
+                        <span style="font-size:10px; color:var(--text-muted);" data-i18n="serverStatusNav">Trạng thái máy chủ</span>
+                    </div>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main">
+            <!-- Top Bar -->
+            <div class="topbar">
+                <button class="toolbar-btn sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                    <span class="material-icons-round">menu</span>
+                </button>
+                <div class="breadcrumb" id="breadcrumb"></div>
+                <div class="search-box">
+                    <span class="material-icons-round">search</span>
+                    <input type="text" id="searchInput" data-i18n-placeholder="searchPlaceholder" placeholder="Tìm kiếm..." oninput="handleSearch(this.value)">
+                </div>
+                <!-- Language Switcher -->
+                <div class="lang-switcher">
+                    <button class="lang-btn" onclick="toggleLangMenu(event)">
+                        <span id="currentLangIcon">🇻🇳</span> <span id="currentLangText">VI</span>
+                        <span class="material-icons-round" style="font-size:16px">arrow_drop_down</span>
+                    </button>
+                    <div class="lang-dropdown" id="langDropdown">
+                        <div class="lang-option" onclick="setLanguage('vi')">🇻🇳 Tiếng Việt</div>
+                        <div class="lang-option" onclick="setLanguage('en')">🇬🇧 English</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="toolbar">
+                <button class="toolbar-btn primary" onclick="toggleUploadZone()">
+                    <span class="material-icons-round">cloud_upload</span> <span data-i18n="upload">Tải lên</span>
+                </button>
+                <button class="toolbar-btn" onclick="showNewFolderDialog()">
+                    <span class="material-icons-round">create_new_folder</span> <span data-i18n="newFolder">Thư mục mới</span>
+                </button>
+                <button class="toolbar-btn" onclick="loadFiles()">
+                    <span class="material-icons-round">refresh</span>
+                </button>
+                <div class="toolbar-spacer"></div>
+                <div class="toolbar-info" id="fileCount"></div>
+                <div class="view-toggle">
+                    <button class="active" id="gridViewBtn" onclick="setView('grid')">
+                        <span class="material-icons-round" style="font-size:16px">grid_view</span>
+                    </button>
+                    <button id="listViewBtn" onclick="setView('list')">
+                        <span class="material-icons-round" style="font-size:16px">view_list</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- File Area -->
+            <div class="file-area" id="fileArea">
+                <!-- Upload Zone -->
+                <div class="upload-zone" id="uploadZone">
+                    <span class="material-icons-round">cloud_upload</span>
+                    <h3 data-i18n="dragDropHere">Kéo thả tệp vào đây</h3>
+                    <p>
+                        <span data-i18n="orSelectFiles">hoặc</span>
+                        <a href="#" onclick="document.getElementById('fileInput').click();return false" style="color:var(--accent)" data-i18n="selectFileLink">chọn tệp</a>
+                        <span data-i18n="fromComputer">từ máy tính</span>
+                    </p>
+                    <input type="file" id="fileInput" multiple hidden onchange="handleFileSelect(this.files)">
+                </div>
+
+                <!-- File Container -->
+                <div id="fileContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="contextMenu">
+        <div class="context-menu-item" onclick="ctxOpen()">
+            <span class="material-icons-round">open_in_new</span> Mở
+        </div>
+        <div class="context-menu-item" onclick="ctxDownload()">
+            <span class="material-icons-round">download</span> Tải xuống
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="ctxRename()">
+            <span class="material-icons-round">edit</span> Đổi tên
+        </div>
+        <div class="context-menu-item danger" onclick="ctxDelete()">
+            <span class="material-icons-round">delete</span> Xóa
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modalContent"></div>
+    </div>
+
+    <!-- Dedicated Media Player Overlay -->
+    <div class="media-player-overlay" id="mediaPlayerOverlay">
+        <!-- Close Button -->
+        <button class="media-player-close" onclick="closeMediaPlayer()" title="Đóng / Close (Esc)">
+            <span class="material-icons-round">close</span>
+        </button>
+        
+        <!-- Header Info -->
+        <div class="media-player-header">
+            <div class="media-player-title" id="mediaPlayerTitle">--</div>
+            <div class="media-player-subtitle" id="mediaPlayerSubtitle">--</div>
+        </div>
+
+        <!-- Floating Left/Right Nav Buttons -->
+        <button class="media-nav prev" id="mediaNavPrev" onclick="navigateMedia(-1)" title="Trước / Previous (←)">
+            <span class="material-icons-round">chevron_left</span>
+        </button>
+        <button class="media-nav next" id="mediaNavNext" onclick="navigateMedia(1)" title="Sau / Next (→)">
+            <span class="material-icons-round">chevron_right</span>
+        </button>
+
+        <!-- Main Content Area -->
+        <div class="media-player-body">
+            <div class="media-player-content" id="mediaPlayerContent"></div>
+        </div>
+
+        <!-- Bottom Control Bar -->
+        <div class="media-player-controls" id="mediaPlayerControls">
+            <!-- Controls injected dynamically -->
+        </div>
+    </div>
+
+    <!-- Transfer Progress -->
+    <div class="transfer-progress" id="uploadProgress">
+        <div class="transfer-progress-header">
+            <h4>📤 Đang tải lên...</h4>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span id="uploadPercent" style="font-size:12px;color:var(--accent);font-weight:600">0%</span>
+                <button class="transfer-close" onclick="this.closest('.transfer-progress').classList.remove('show')">
+                    <span class="material-icons-round" style="font-size:16px">close</span>
+                </button>
+            </div>
+        </div>
+        <div class="transfer-stats">
+            <div class="transfer-stat">
+                <div class="stat-value" id="uploadSpeed">--</div>
+                <div class="stat-label">Tốc độ</div>
+            </div>
+            <div class="transfer-stat">
+                <div class="stat-value" id="uploadTransferred">--</div>
+                <div class="stat-label">Đã gửi</div>
+            </div>
+            <div class="transfer-stat">
+                <div class="stat-value" id="uploadETA">--</div>
+                <div class="stat-label">Còn lại</div>
+            </div>
+        </div>
+        <div class="transfer-main-bar"><div class="transfer-main-bar-fill" id="uploadMainBar" style="width:0%"></div></div>
+        <div class="transfer-file-list" id="uploadFileList"></div>
+        <div class="transfer-history" id="uploadHistory" style="display:none">
+            <div class="transfer-history-title">Lịch sử truyền</div>
+            <div id="uploadHistoryList"></div>
+        </div>
+    </div>
+
+    <!-- Download Progress -->
+    <div class="download-progress" id="downloadProgress">
+        <span class="material-icons-round" style="font-size:24px;color:var(--accent-blue)">downloading</span>
+        <div class="download-info">
+            <div class="dl-name" id="dlName">--</div>
+            <div class="dl-stats">
+                <span class="dl-speed" id="dlSpeed">--</span>
+                <span id="dlTransferred">--</span>
+                <span id="dlPercent">0%</span>
+            </div>
+            <div class="download-bar"><div class="download-bar-fill" id="dlBar" style="width:0%"></div></div>
+        </div>
+        <button class="transfer-close" onclick="this.closest('.download-progress').classList.remove('show')">
+            <span class="material-icons-round" style="font-size:16px">close</span>
+        </button>
+    </div>
+
+    <!-- Drag Overlay -->
+    <div class="drag-overlay" id="dragOverlay">
+        <div style="text-align:center;color:var(--accent);pointer-events:none">
+            <span class="material-icons-round" style="font-size:64px">cloud_upload</span>
+            <h2 data-i18n="dropToUpload">Thả tệp để tải lên</h2>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+    // Internationalization (i18n)
+    const i18n = {
+        vi: {
+            allFiles: "Tất cả tệp",
+            upload: "Tải lên",
+            images: "Hình ảnh",
+            videos: "Video",
+            audio: "Nhạc",
+            documents: "Tài liệu",
+            archives: "Nén",
+            system: "Hệ thống",
+            storage: "💾 Dung lượng",
+            used: "Đã dùng",
+            free: "Trống",
+            total: "Tổng dung lượng",
+            searchPlaceholder: "Tìm kiếm...",
+            newFolder: "Thư mục mới",
+            refresh: "Làm mới",
+            emptyFolder: "Thư mục trống",
+            dragDropHere: "Kéo thả tệp vào đây",
+            orSelectFiles: "hoặc",
+            selectFileLink: "chọn tệp",
+            fromComputer: "từ máy tính",
+            dropToUpload: "Thả tệp để tải lên",
+            contextOpen: "Mở",
+            contextDownload: "Tải xuống",
+            contextRename: "Đổi tên",
+            contextDelete: "Xóa",
+            renameTitle: "Đổi tên",
+            renameBtn: "Đổi tên",
+            cancel: "Hủy",
+            newFolderTitle: "Tạo thư mục mới",
+            newFolderInput: "Tên thư mục",
+            createBtn: "Tạo",
+            uploading: "Đang tải lên...",
+            speed: "Tốc độ",
+            transferred: "Đã gửi",
+            remaining: "Còn lại",
+            transferHistory: "Lịch sử truyền",
+            downloading: "Đang tải xuống...",
+            serverStatusTitle: "Thông tin trạng thái máy chủ NAS Server",
+            serverStatusNav: "Trạng thái máy chủ",
+            os: "Hệ điều hành",
+            uptime: "Thời gian hoạt động",
+            hostname: "Tên máy chủ",
+            path: "Đường dẫn thư mục",
+            days: "ngày",
+            hours: "giờ",
+            minutes: "phút",
+            seconds: "giây",
+            close: "Đóng",
+            foldersCount: "thư mục",
+            filesCount: "tệp",
+            resultsCount: "kết quả",
+            confirmDelete: "Xóa \"{name}\"?",
+            functions: "Chức năng",
+            filters: "Bộ lọc"
+        },
+        en: {
+            allFiles: "All Files",
+            upload: "Upload",
+            images: "Images",
+            videos: "Videos",
+            audio: "Audio",
+            documents: "Documents",
+            archives: "Archives",
+            system: "System",
+            storage: "💾 Storage Usage",
+            used: "Used",
+            free: "Free",
+            total: "Total Capacity",
+            searchPlaceholder: "Search...",
+            newFolder: "New Folder",
+            refresh: "Refresh",
+            emptyFolder: "Folder is empty",
+            dragDropHere: "Drag & drop files here",
+            orSelectFiles: "or",
+            selectFileLink: "select files",
+            fromComputer: "from computer",
+            dropToUpload: "Drop files to upload",
+            contextOpen: "Open",
+            contextDownload: "Download",
+            contextRename: "Rename",
+            contextDelete: "Delete",
+            renameTitle: "Rename",
+            renameBtn: "Rename",
+            cancel: "Cancel",
+            newFolderTitle: "Create New Folder",
+            newFolderInput: "Folder name",
+            createBtn: "Create",
+            uploading: "Uploading...",
+            speed: "Speed",
+            transferred: "Transferred",
+            remaining: "Remaining",
+            transferHistory: "Transfer History",
+            downloading: "Downloading...",
+            serverStatusTitle: "NAS Server Status Information",
+            serverStatusNav: "Server status",
+            os: "OS Platform",
+            uptime: "Uptime",
+            hostname: "Hostname",
+            path: "Root directory path",
+            days: "d",
+            hours: "h",
+            minutes: "m",
+            seconds: "s",
+            close: "Close",
+            foldersCount: "folders",
+            filesCount: "files",
+            resultsCount: "results",
+            confirmDelete: "Delete \"{name}\"?",
+            functions: "Functions",
+            filters: "Filters"
+        }
+    };
+
+    let currentLang = localStorage.getItem('nas_lang') || 'vi';
+
+    function toggleLangMenu(e) {
+        e.stopPropagation();
+        document.getElementById('langDropdown').classList.toggle('show');
+    }
+
+    function setLanguage(lang) {
+        currentLang = lang;
+        localStorage.setItem('nas_lang', lang);
+        document.getElementById('langDropdown').classList.remove('show');
+        applyLanguage();
+    }
+
+    function applyLanguage() {
+        // Translate text contents
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if (i18n[currentLang] && i18n[currentLang][key]) {
+                el.textContent = i18n[currentLang][key];
+            }
+        });
+        
+        // Translate placeholders
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const key = el.getAttribute('data-i18n-placeholder');
+            if (i18n[currentLang] && i18n[currentLang][key]) {
+                el.placeholder = i18n[currentLang][key];
+            }
+        });
+
+        // Update active language UI
+        const flag = currentLang === 'vi' ? '🇻🇳' : '🇬🇧';
+        const code = currentLang.toUpperCase();
+        document.getElementById('currentLangIcon').textContent = flag;
+        document.getElementById('currentLangText').textContent = code;
+
+        // Reload storage text and counts
+        loadStorage();
+        if (currentFiles.length > 0) {
+            renderBreadcrumb();
+            const foldersCountStr = i18n[currentLang].foldersCount;
+            const filesCountStr = i18n[currentLang].filesCount;
+            const folders = currentFiles.filter(f => f.isDirectory).length;
+            const files = currentFiles.filter(f => !f.isDirectory).length;
+            document.getElementById('fileCount').textContent = 
+                `${folders} ${foldersCountStr}, ${files} ${filesCountStr}`;
+        }
+    }
+
+    // State
+    let currentPath = '';
+    let currentFiles = [];
+    let viewMode = 'grid';
+    let ctxFile = null;
+    let searchTimeout = null;
+    let currentFilter = null;
+    let transferHistory = [];
+    
+    // Playback playlist state
+    let previewQueue = [];
+    let currentPreviewIndex = -1;
+
+    // Init
+    document.addEventListener('DOMContentLoaded', () => {
+        applyLanguage();
+        loadFiles();
+        setupDragDrop();
+        document.addEventListener('click', () => {
+            hideContextMenu();
+            document.getElementById('langDropdown').classList.remove('show');
+            const speedDropdown = document.getElementById('speedDropdown');
+            if (speedDropdown) speedDropdown.classList.remove('show');
+        });
+        
+        // Setup global keyboard hotkeys for file manager and player
+        document.addEventListener('keydown', e => {
+            const player = document.getElementById('mediaPlayerOverlay');
+            if (player && player.classList.contains('show')) {
+                const video = document.querySelector('.media-player-content video');
+                if (e.key === 'Escape') {
+                    closeMediaPlayer();
+                    e.preventDefault();
+                } else if (e.key === 'ArrowLeft') {
+                    if (video) {
+                        video.currentTime = Math.max(0, video.currentTime - 10);
+                    } else {
+                        navigateMedia(-1);
+                    }
+                    e.preventDefault();
+                } else if (e.key === 'ArrowRight') {
+                    if (video) {
+                        video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
+                    } else {
+                        navigateMedia(1);
+                    }
+                    e.preventDefault();
+                } else if (e.key === ' ') {
+                    if (video) {
+                        toggleVideoPlay();
+                        e.preventDefault();
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    if (video) {
+                        video.volume = Math.min(1, video.volume + 0.1);
+                        const slider = document.getElementById('volumeSlider');
+                        if (slider) slider.value = video.volume;
+                        e.preventDefault();
+                    }
+                } else if (e.key === 'ArrowDown') {
+                    if (video) {
+                        video.volume = Math.max(0, video.volume - 0.1);
+                        const slider = document.getElementById('volumeSlider');
+                        if (slider) slider.value = video.volume;
+                        e.preventDefault();
+                    }
+                } else if (e.key.toLowerCase() === 'f') {
+                    if (video) {
+                        toggleVideoFullscreen();
+                        e.preventDefault();
+                    }
+                }
+            } else {
+                if (e.key === 'Escape') {
+                    hideModal();
+                    hideContextMenu();
+                }
+            }
+        });
+    });
+
+    // API Helpers
+    async function api(url, opts = {}) {
+        const res = await fetch(url, opts);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: 'Request failed' }));
+            throw new Error(err.error || 'Request failed');
+        }
+        return res.json();
+    }
+
+    // Load files
+    async function loadFiles(path) {
+        if (path !== undefined) currentPath = path;
+        currentFilter = null;
+        try {
+            const data = await api(`/api/files?path=${encodeURIComponent(currentPath)}`);
+            currentFiles = data.files;
+            renderBreadcrumb();
+            renderFiles(data.files);
+            
+            const foldersCountStr = i18n[currentLang].foldersCount;
+            const filesCountStr = i18n[currentLang].filesCount;
+            document.getElementById('fileCount').textContent = 
+                `${data.totalFolders} ${foldersCountStr}, ${data.totalFiles} ${filesCountStr}`;
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+    }
+
+    function navigateTo(path) {
+        currentPath = path === '.' ? '' : path;
+        loadFiles();
+        document.getElementById('sidebar').classList.remove('open');
+    }
+
+    // Render breadcrumb
+    function renderBreadcrumb() {
+        const bc = document.getElementById('breadcrumb');
+        let html = `<span class="breadcrumb-item ${!currentPath ? 'active' : ''}" onclick="navigateTo('')">
+            <span class="material-icons-round" style="font-size:18px;vertical-align:middle">home</span> NAS
+        </span>`;
+        if (currentPath) {
+            const parts = currentPath.split('/');
+            let accumulated = '';
+            parts.forEach((p, i) => {
+                accumulated += (i > 0 ? '/' : '') + p;
+                const acc = accumulated;
+                html += `<span class="breadcrumb-sep">/</span>`;
+                html += `<span class="breadcrumb-item ${i === parts.length - 1 ? 'active' : ''}" 
+                    onclick="navigateTo('${acc}')">${p}</span>`;
+            });
+        }
+        bc.innerHTML = html;
+    }
+
+    // Render files
+    function renderFiles(files) {
+        const container = document.getElementById('fileContainer');
+        
+        if (currentFilter) {
+            files = files.filter(f => {
+                if (currentFilter === 'image') return f.isImage;
+                if (currentFilter === 'video') return f.isVideo;
+                if (currentFilter === 'audio') return f.isAudio;
+                if (currentFilter === 'text') return f.isText;
+                if (currentFilter === 'archive') return f.isArchive;
+                return true;
+            });
+        }
+        
+        if (files.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <span class="material-icons-round">folder_open</span>
+                    <h3>Thư mục trống</h3>
+                    <p>Kéo thả tệp hoặc nhấn "Tải lên" để thêm tệp</p>
+                </div>`;
+            return;
+        }
+
+        if (viewMode === 'grid') {
+            container.innerHTML = `<div class="file-grid">${files.map(f => renderGridCard(f)).join('')}</div>`;
+        } else {
+            container.innerHTML = `
+                <div class="file-list">
+                    <div class="file-list-header">
+                        <span>Tên</span><span>Kích thước</span><span>Ngày sửa</span><span></span>
+                    </div>
+                    ${files.map(f => renderListItem(f)).join('')}
+                </div>`;
+        }
+    }
+
+    function getFileIcon(f) {
+        if (f.isDirectory) return { icon: 'folder', cls: 'folder' };
+        if (f.isImage) return { icon: 'image', cls: 'image' };
+        if (f.isVideo) return { icon: 'movie', cls: 'video' };
+        if (f.isAudio) return { icon: 'music_note', cls: 'audio' };
+        if (f.isText) return { icon: 'description', cls: 'text' };
+        if (f.isPdf) return { icon: 'picture_as_pdf', cls: 'pdf' };
+        if (f.isArchive) return { icon: 'archive', cls: 'archive' };
+        return { icon: 'insert_drive_file', cls: 'default' };
+    }
+
+    function renderGridCard(f) {
+        const { icon, cls } = getFileIcon(f);
+        const thumb = f.isImage ? 
+            `<img class="file-thumb" src="/api/preview?path=${encodeURIComponent(f.path)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">` : '';
+        return `
+            <div class="file-card" ondblclick="openFile(${esc(f)})" 
+                onclick="selectFile(this, event)" oncontextmenu="showCtx(event, ${esc(f)})">
+                ${thumb}
+                <span class="material-icons-round file-icon ${cls}" ${f.isImage ? 'style="display:none"' : ''}>${icon}</span>
+                <div class="file-name">${escHtml(f.name)}</div>
+                <div class="file-size">${f.isDirectory ? '' : formatSize(f.size)}</div>
+            </div>`;
+    }
+
+    function renderListItem(f) {
+        const { icon, cls } = getFileIcon(f);
+        return `
+            <div class="file-list-item" ondblclick="openFile(${esc(f)})" 
+                onclick="selectFile(this, event)" oncontextmenu="showCtx(event, ${esc(f)})">
+                <div class="file-list-name">
+                    <span class="material-icons-round ${cls}">${icon}</span>
+                    <span>${escHtml(f.name)}</span>
+                </div>
+                <div class="file-meta">${f.isDirectory ? '--' : formatSize(f.size)}</div>
+                <div class="file-meta">${formatDate(f.modified)}</div>
+                <div class="file-list-actions">
+                    <button onclick="event.stopPropagation();downloadFile('${f.path}')" title="Tải xuống">
+                        <span class="material-icons-round" style="font-size:16px">download</span>
+                    </button>
+                    <button onclick="event.stopPropagation();deleteFile('${f.path}','${escHtml(f.name)}')" title="Xóa">
+                        <span class="material-icons-round" style="font-size:16px">delete</span>
+                    </button>
+                </div>
+            </div>`;
+    }
+
+    // File operations
+    function openFile(f) {
+        if (f.isDirectory) {
+            navigateTo(f.path);
+        } else if (f.isImage || f.isVideo || f.isAudio) {
+            // Find previewable files in current list to enable playlist navigation
+            const filteredFiles = currentFiles.filter(item => {
+                if (currentFilter) {
+                    if (currentFilter === 'image') return item.isImage;
+                    if (currentFilter === 'video') return item.isVideo;
+                    if (currentFilter === 'audio') return item.isAudio;
+                    return false;
+                }
+                return item.isImage || item.isVideo || item.isAudio;
+            });
+            previewQueue = filteredFiles;
+            currentPreviewIndex = filteredFiles.findIndex(item => item.path === f.path);
+            showPreview(f);
+        } else if (f.isText) {
+            showTextPreview(f);
+        } else {
+            downloadFile(f.path);
+        }
+    }
+
+    function downloadFile(filePath) {
+        const fileName = filePath.split('/').pop();
+        const dlPanel = document.getElementById('downloadProgress');
+        const dlName = document.getElementById('dlName');
+        const dlSpeed = document.getElementById('dlSpeed');
+        const dlTransferred = document.getElementById('dlTransferred');
+        const dlPercent = document.getElementById('dlPercent');
+        const dlBar = document.getElementById('dlBar');
+
+        // Show download panel
+        dlName.textContent = fileName;
+        dlSpeed.textContent = '--';
+        dlTransferred.textContent = '';
+        dlPercent.textContent = '0%';
+        dlBar.style.width = '0%';
+        dlPanel.classList.add('show');
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', `/api/download?path=${encodeURIComponent(filePath)}`);
+        xhr.responseType = 'blob';
+
+        let lastLoaded = 0;
+        let lastTime = Date.now();
+        let speeds = [];
+
+        xhr.onprogress = (e) => {
+            const now = Date.now();
+            const elapsed = (now - lastTime) / 1000;
+            if (elapsed > 0.3) {
+                const bytesPerSec = (e.loaded - lastLoaded) / elapsed;
+                speeds.push(bytesPerSec);
+                if (speeds.length > 5) speeds.shift();
+                const avgSpeed = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+                dlSpeed.textContent = formatSpeed(avgSpeed);
+                lastLoaded = e.loaded;
+                lastTime = now;
+            }
+            dlTransferred.textContent = formatSize(e.loaded);
+            if (e.lengthComputable) {
+                const pct = Math.round(e.loaded / e.total * 100);
+                dlPercent.textContent = pct + '%';
+                dlBar.style.width = pct + '%';
+            }
+        };
+
+        xhr.onload = () => {
+            const avgSpeed = speeds.length > 0 ? speeds.reduce((a, b) => a + b, 0) / speeds.length : 0;
+            addTransferHistory('⬇️ ' + fileName, avgSpeed, xhr.response.size || 0);
+            dlPanel.classList.remove('show');
+            // Trigger browser download
+            const url = URL.createObjectURL(xhr.response);
+            const a = document.createElement('a');
+            a.href = url; a.download = fileName; a.click();
+            URL.revokeObjectURL(url);
+            showToast(`Tải xuống: ${fileName} (${formatSpeed(avgSpeed)})`, 'success');
+        };
+
+        xhr.onerror = () => {
+            dlPanel.classList.remove('show');
+            // Fallback to direct download
+            const a = document.createElement('a');
+            a.href = `/api/download?path=${encodeURIComponent(filePath)}`;
+            a.download = ''; a.click();
+        };
+
+        xhr.send();
+    }
+
+    async function deleteFile(filePath, name) {
+        const confirmMsg = i18n[currentLang].confirmDelete.replace('{name}', name);
+        if (!confirm(confirmMsg)) return;
+        try {
+            await api('/api/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: filePath })
+            });
+            showToast(`${currentLang === 'vi' ? 'Đã xóa' : 'Deleted'}: ${name}`, 'success');
+            loadFiles();
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+    }
+
+    async function renameFile(filePath, oldName) {
+        showModal(`
+            <h3>Đổi tên</h3>
+            <input type="text" id="renameInput" value="${escHtml(oldName)}">
+            <div class="modal-actions">
+                <button onclick="hideModal()">Hủy</button>
+                <button class="primary" onclick="doRename('${filePath}')">Đổi tên</button>
+            </div>
+        `);
+        setTimeout(() => {
+            const input = document.getElementById('renameInput');
+            input.focus();
+            const dot = oldName.lastIndexOf('.');
+            input.setSelectionRange(0, dot > 0 ? dot : oldName.length);
+        }, 100);
+    }
+
+    async function doRename(oldPath) {
+        const newName = document.getElementById('renameInput').value.trim();
+        if (!newName) return;
+        try {
+            await api('/api/rename', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ oldPath, newName })
+            });
+            hideModal();
+            showToast('Đã đổi tên', 'success');
+            loadFiles();
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+    }
+
+    // New folder
+    function showNewFolderDialog() {
+        showModal(`
+            <h3>Tạo thư mục mới</h3>
+            <input type="text" id="newFolderInput" placeholder="Tên thư mục">
+            <div class="modal-actions">
+                <button onclick="hideModal()">Hủy</button>
+                <button class="primary" onclick="doCreateFolder()">Tạo</button>
+            </div>
+        `);
+        setTimeout(() => document.getElementById('newFolderInput').focus(), 100);
+    }
+
+    async function doCreateFolder() {
+        const name = document.getElementById('newFolderInput').value.trim();
+        if (!name) return;
+        try {
+            await api('/api/mkdir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: currentPath, name })
+            });
+            hideModal();
+            showToast(`Đã tạo thư mục: ${name}`, 'success');
+            loadFiles();
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+    }
+
+    // Preview & Media Player Overlay Engine
+    let imgScale = 1;
+    let imgRotate = 0;
+    let imgTranslateX = 0;
+    let imgTranslateY = 0;
+    let imgIsDragging = false;
+    let imgStartX = 0;
+    let imgStartY = 0;
+
+    function showPreview(f) {
+        const overlay = document.getElementById('mediaPlayerOverlay');
+        overlay.classList.add('show');
+        renderMediaContent(f);
+    }
+
+    function renderMediaContent(f) {
+        const title = document.getElementById('mediaPlayerTitle');
+        const subtitle = document.getElementById('mediaPlayerSubtitle');
+        const content = document.getElementById('mediaPlayerContent');
+        const controls = document.getElementById('mediaPlayerControls');
+
+        title.textContent = f.name;
+        subtitle.textContent = `${formatSize(f.size)} • ${formatDate(f.modified)}`;
+
+        // Navigation button states
+        document.getElementById('mediaNavPrev').disabled = currentPreviewIndex <= 0;
+        document.getElementById('mediaNavNext').disabled = currentPreviewIndex >= previewQueue.length - 1;
+
+        if (f.isImage) {
+            content.innerHTML = `<img id="previewImg" src="/api/preview?path=${encodeURIComponent(f.path)}" alt="${escHtml(f.name)}" style="transform: translate(0px, 0px) scale(1) rotate(0deg)">`;
+            
+            // Build image controls
+            controls.innerHTML = `
+                <div class="control-group">
+                    <button class="control-btn" onclick="zoomImage(0.1)" title="Phóng to / Zoom In"><span class="material-icons-round">zoom_in</span></button>
+                    <button class="control-btn" onclick="zoomImage(-0.1)" title="Thu nhỏ / Zoom Out"><span class="material-icons-round">zoom_out</span></button>
+                    <button class="control-btn" onclick="rotateImage(90)" title="Xoay phải / Rotate Right"><span class="material-icons-round">rotate_right</span></button>
+                    <button class="control-btn" onclick="resetImage()" title="Đặt lại / Reset"><span class="material-icons-round">restart_alt</span></button>
+                </div>
+                <div class="control-group" style="margin-left:auto">
+                    <button class="control-btn primary" onclick="downloadFile('${f.path}')"><span class="material-icons-round">download</span> <span data-i18n="contextDownload">${currentLang === 'vi' ? 'Tải xuống' : 'Download'}</span></button>
+                </div>
+            `;
+
+            // Setup mouse pan & zoom for the image
+            setTimeout(() => {
+                const img = document.getElementById('previewImg');
+                if (img) setupImageInteractions(img);
+            }, 50);
+
+        } else if (f.isVideo) {
+            content.innerHTML = `<video id="previewVideo" controls autoplay src="/api/preview?path=${encodeURIComponent(f.path)}"></video>`;
+            
+            // Build custom video controls
+            controls.innerHTML = `
+                <div class="control-group">
+                    <button class="control-btn" id="videoPlayPause" onclick="toggleVideoPlay()"><span class="material-icons-round" id="playPauseIcon">pause</span></button>
+                    <button class="control-btn" onclick="skipVideo(-10)" title="-10s"><span class="material-icons-round">replay_10</span></button>
+                    <button class="control-btn" onclick="skipVideo(10)" title="+10s"><span class="material-icons-round">forward_10</span></button>
+                </div>
+                
+                <div class="control-group speed-selector">
+                    <button class="control-btn" onclick="toggleSpeedDropdown(event)">
+                        <span class="material-icons-round" style="font-size:18px">speed</span>
+                        <span id="speedVal">1.0x</span>
+                    </button>
+                    <div class="speed-dropdown" id="speedDropdown">
+                        <div class="speed-opt" onclick="setVideoSpeed(0.5)">0.5x</div>
+                        <div class="speed-opt" onclick="setVideoSpeed(0.75)">0.75x</div>
+                        <div class="speed-opt active" onclick="setVideoSpeed(1.0)">1.0x</div>
+                        <div class="speed-opt" onclick="setVideoSpeed(1.25)">1.25x</div>
+                        <div class="speed-opt" onclick="setVideoSpeed(1.5)">1.5x</div>
+                        <div class="speed-opt" onclick="setVideoSpeed(2.0)">2.0x</div>
+                    </div>
+                </div>
+
+                <div class="control-group" style="gap:4px">
+                    <span class="material-icons-round" style="color:var(--text-secondary); font-size:18px">volume_up</span>
+                    <input type="range" min="0" max="1" step="0.05" value="1" id="volumeSlider" oninput="setVideoVolume(this.value)" style="width:80px; accent-color:var(--accent); cursor:pointer;">
+                </div>
+
+                <div class="control-group" style="margin-left:auto">
+                    <button class="control-btn" onclick="toggleVideoFullscreen()"><span class="material-icons-round">fullscreen</span></button>
+                    <button class="control-btn primary" onclick="downloadFile('${f.path}')"><span class="material-icons-round">download</span></button>
+                </div>
+            `;
+
+            // Listen to standard video controls play/pause sync
+            setTimeout(() => {
+                const video = document.getElementById('previewVideo');
+                if (video) {
+                    video.addEventListener('play', () => { document.getElementById('playPauseIcon').textContent = 'pause'; });
+                    video.addEventListener('pause', () => { document.getElementById('playPauseIcon').textContent = 'play_arrow'; });
+                }
+            }, 50);
+
+        } else if (f.isAudio) {
+            content.innerHTML = `<audio controls autoplay src="/api/preview?path=${encodeURIComponent(f.path)}" style="width:100%"></audio>`;
+            controls.innerHTML = `
+                <div class="control-group" style="margin-left:auto">
+                    <button class="control-btn primary" onclick="downloadFile('${f.path}')"><span class="material-icons-round">download</span> <span data-i18n="contextDownload">${currentLang === 'vi' ? 'Tải xuống' : 'Download'}</span></button>
+                </div>
+            `;
+        }
+    }
+
+    function navigateMedia(dir) {
+        const nextIndex = currentPreviewIndex + dir;
+        if (nextIndex >= 0 && nextIndex < previewQueue.length) {
+            // Pause current video/audio if any
+            const prevVideo = document.getElementById('previewVideo');
+            if (prevVideo) prevVideo.pause();
+            const prevAudio = document.querySelector('.media-player-content audio');
+            if (prevAudio) prevAudio.pause();
+
+            currentPreviewIndex = nextIndex;
+            renderMediaContent(previewQueue[nextIndex]);
+        }
+    }
+
+    function closeMediaPlayer() {
+        const video = document.getElementById('previewVideo');
+        if (video) video.pause();
+        const audio = document.querySelector('.media-player-content audio');
+        if (audio) audio.pause();
+
+        document.getElementById('mediaPlayerOverlay').classList.remove('show');
+    }
+
+    // Image Zoom / Rotate / Pan
+    function setupImageInteractions(img) {
+        imgScale = 1;
+        imgRotate = 0;
+        imgTranslateX = 0;
+        imgTranslateY = 0;
+        imgIsDragging = false;
+
+        img.addEventListener('mousedown', e => {
+            e.preventDefault();
+            imgIsDragging = true;
+            imgStartX = e.clientX - imgTranslateX;
+            imgStartY = e.clientY - imgTranslateY;
+            img.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mousemove', e => {
+            if (!imgIsDragging) return;
+            imgTranslateX = e.clientX - imgStartX;
+            imgTranslateY = e.clientY - imgStartY;
+            updateImageTransform(img);
+        });
+
+        window.addEventListener('mouseup', () => {
+            imgIsDragging = false;
+            img.style.cursor = 'grab';
+        });
+
+        // Scroll to zoom
+        img.addEventListener('wheel', e => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            zoomImage(delta);
+        });
+    }
+
+    function updateImageTransform(img) {
+        if (!img) img = document.getElementById('previewImg');
+        if (img) {
+            img.style.transform = `translate(${imgTranslateX}px, ${imgTranslateY}px) scale(${imgScale}) rotate(${imgRotate}deg)`;
+        }
+    }
+
+    function zoomImage(amount) {
+        const img = document.getElementById('previewImg');
+        if (img) {
+            imgScale = Math.max(0.1, Math.min(6, imgScale + amount));
+            updateImageTransform(img);
+        }
+    }
+
+    function rotateImage(deg) {
+        const img = document.getElementById('previewImg');
+        if (img) {
+            imgRotate = (imgRotate + deg) % 360;
+            updateImageTransform(img);
+        }
+    }
+
+    function resetImage() {
+        const img = document.getElementById('previewImg');
+        if (img) {
+            imgScale = 1;
+            imgRotate = 0;
+            imgTranslateX = 0;
+            imgTranslateY = 0;
+            updateImageTransform(img);
+        }
+    }
+
+    // Video Control Helpers
+    function toggleVideoPlay() {
+        const video = document.getElementById('previewVideo');
+        const icon = document.getElementById('playPauseIcon');
+        if (video) {
+            if (video.paused) {
+                video.play();
+                icon.textContent = 'pause';
+            } else {
+                video.pause();
+                icon.textContent = 'play_arrow';
+            }
+        }
+    }
+
+    function skipVideo(seconds) {
+        const video = document.getElementById('previewVideo');
+        if (video) {
+            video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + seconds));
+        }
+    }
+
+    function toggleSpeedDropdown(e) {
+        e.stopPropagation();
+        document.getElementById('speedDropdown').classList.toggle('show');
+    }
+
+    function setVideoSpeed(speed) {
+        const video = document.getElementById('previewVideo');
+        if (video) {
+            video.playbackRate = speed;
+            document.getElementById('speedVal').textContent = speed + 'x';
+            
+            // Mark option active
+            document.querySelectorAll('.speed-opt').forEach(opt => {
+                opt.classList.toggle('active', parseFloat(opt.textContent) === speed);
+            });
+        }
+        document.getElementById('speedDropdown').classList.remove('show');
+    }
+
+    function setVideoVolume(vol) {
+        const video = document.getElementById('previewVideo');
+        if (video) {
+            video.volume = vol;
+        }
+    }
+
+    function toggleVideoFullscreen() {
+        const video = document.getElementById('previewVideo');
+        if (video) {
+            if (video.requestFullscreen) {
+                video.requestFullscreen();
+            } else if (video.webkitRequestFullscreen) { /* Safari */
+                video.webkitRequestFullscreen();
+            } else if (video.msRequestFullscreen) { /* IE11 */
+                video.msRequestFullscreen();
+            }
+        }
+    }
+
+    async function showTextPreview(f) {
+        try {
+            const data = await api(`/api/read?path=${encodeURIComponent(f.path)}`);
+            showModal(`
+                <div class="preview-modal">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <h3 style="margin:0">${escHtml(f.name)}</h3>
+                        <span style="font-size:12px;color:var(--text-muted)">${formatSize(f.size)}</span>
+                    </div>
+                    <div class="preview-content"><pre>${escHtml(data.content)}</pre></div>
+                    <div class="modal-actions">
+                        <button onclick="downloadFile('${f.path}')">⬇️ Tải xuống</button>
+                        <button onclick="hideModal()">Đóng</button>
+                    </div>
+                </div>
+            `);
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+    }
+
+    // Upload
+    function toggleUploadZone() {
+        const zone = document.getElementById('uploadZone');
+        zone.classList.toggle('active');
+    }
+
+    async function handleFileSelect(files) {
+        if (!files.length) return;
+        const formData = new FormData();
+        const totalSize = Array.from(files).reduce((s, f) => s + f.size, 0);
+        Array.from(files).forEach(f => formData.append('files', f));
+        
+        const progress = document.getElementById('uploadProgress');
+        progress.classList.add('show');
+
+        // Reset stats
+        document.getElementById('uploadSpeed').textContent = '--';
+        document.getElementById('uploadTransferred').textContent = '0 B';
+        document.getElementById('uploadETA').textContent = '--';
+        document.getElementById('uploadPercent').textContent = '0%';
+        document.getElementById('uploadMainBar').style.width = '0%';
+
+        document.getElementById('uploadFileList').innerHTML = 
+            Array.from(files).map(f => `
+                <div class="transfer-file-item">
+                    <span style="flex-shrink:0;font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.name)}</span>
+                    <span style="font-size:10px;color:var(--text-muted);flex-shrink:0">${formatSize(f.size)}</span>
+                    <div class="progress-bar"><div class="progress-bar-fill" style="width:0%"></div></div>
+                </div>
+            `).join('');
+
+        const startTime = Date.now();
+        let lastLoaded = 0;
+        let lastTime = startTime;
+        let speeds = [];
+
+        try {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `/api/upload?path=${encodeURIComponent(currentPath)}`);
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const now = Date.now();
+                    const elapsed = (now - lastTime) / 1000;
+                    const pct = Math.round(e.loaded / e.total * 100);
+
+                    // Calculate speed (sample every 300ms)
+                    if (elapsed > 0.3) {
+                        const bytesPerSec = (e.loaded - lastLoaded) / elapsed;
+                        speeds.push(bytesPerSec);
+                        if (speeds.length > 8) speeds.shift();
+                        const avgSpeed = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+
+                        document.getElementById('uploadSpeed').textContent = formatSpeed(avgSpeed);
+
+                        // ETA
+                        const remaining = e.total - e.loaded;
+                        if (avgSpeed > 0) {
+                            const etaSec = remaining / avgSpeed;
+                            document.getElementById('uploadETA').textContent = formatDuration(etaSec);
+                        }
+
+                        lastLoaded = e.loaded;
+                        lastTime = now;
+                    }
+
+                    document.getElementById('uploadPercent').textContent = pct + '%';
+                    document.getElementById('uploadTransferred').textContent = formatSize(e.loaded);
+                    document.getElementById('uploadMainBar').style.width = pct + '%';
+                    document.querySelectorAll('.progress-bar-fill').forEach(bar => bar.style.width = pct + '%');
+                }
+            };
+
+            xhr.onload = () => {
+                const totalTime = (Date.now() - startTime) / 1000;
+                const avgSpeed = totalSize / totalTime;
+
+                if (xhr.status === 200) {
+                    // Add to history
+                    const fileNames = Array.from(files).map(f => f.name);
+                    fileNames.forEach(name => addTransferHistory('📤 ' + name, avgSpeed, totalSize / files.length));
+                    showUploadHistory();
+
+                    // Final stats
+                    document.getElementById('uploadSpeed').textContent = formatSpeed(avgSpeed);
+                    document.getElementById('uploadETA').textContent = '✓';
+                    document.getElementById('uploadPercent').textContent = '100%';
+                    document.getElementById('uploadMainBar').style.width = '100%';
+
+                    showToast(`Tải lên ${files.length} tệp (${formatSpeed(avgSpeed)}, ${formatDuration(totalTime)})`, 'success');
+
+                    // Auto-hide after 3s
+                    setTimeout(() => progress.classList.remove('show'), 3000);
+                    loadFiles();
+                    loadStorage();
+                } else {
+                    progress.classList.remove('show');
+                    showToast('Lỗi tải lên', 'error');
+                }
+            };
+
+            xhr.onerror = () => { progress.classList.remove('show'); showToast('Lỗi kết nối', 'error'); };
+            xhr.send(formData);
+        } catch (e) {
+            progress.classList.remove('show');
+            showToast(e.message, 'error');
+        }
+        document.getElementById('fileInput').value = '';
+    }
+
+    // Drag & Drop
+    function setupDragDrop() {
+        const area = document.getElementById('fileArea');
+        const overlay = document.getElementById('dragOverlay');
+        let dragCounter = 0;
+        
+        document.addEventListener('dragenter', e => { e.preventDefault(); dragCounter++; overlay.classList.add('show'); });
+        document.addEventListener('dragleave', e => { e.preventDefault(); dragCounter--; if (dragCounter <= 0) { overlay.classList.remove('show'); dragCounter = 0; } });
+        document.addEventListener('dragover', e => e.preventDefault());
+        document.addEventListener('drop', e => {
+            e.preventDefault();
+            dragCounter = 0;
+            overlay.classList.remove('show');
+            if (e.dataTransfer.files.length) handleFileSelect(e.dataTransfer.files);
+        });
+    }
+
+    // Context Menu
+    function showCtx(e, f) {
+        e.preventDefault();
+        e.stopPropagation();
+        ctxFile = f;
+        const menu = document.getElementById('contextMenu');
+        menu.style.left = Math.min(e.clientX, window.innerWidth - 220) + 'px';
+        menu.style.top = Math.min(e.clientY, window.innerHeight - 200) + 'px';
+        menu.classList.add('show');
+    }
+    function hideContextMenu() { document.getElementById('contextMenu').classList.remove('show'); }
+    function ctxOpen() { hideContextMenu(); if (ctxFile) openFile(ctxFile); }
+    function ctxDownload() { hideContextMenu(); if (ctxFile) downloadFile(ctxFile.path); }
+    function ctxRename() { hideContextMenu(); if (ctxFile) renameFile(ctxFile.path, ctxFile.name); }
+    function ctxDelete() { hideContextMenu(); if (ctxFile) deleteFile(ctxFile.path, ctxFile.name); }
+
+    // Search
+    async function handleSearch(q) {
+        clearTimeout(searchTimeout);
+        if (!q.trim()) { loadFiles(); return; }
+        searchTimeout = setTimeout(async () => {
+            try {
+                const data = await api(`/api/search?q=${encodeURIComponent(q)}&path=${encodeURIComponent(currentPath)}`);
+                renderFiles(data.results);
+                const resultsCountStr = i18n[currentLang].resultsCount;
+                document.getElementById('fileCount').textContent = `${data.results.length} ${resultsCountStr}`;
+            } catch (e) { showToast(e.message, 'error'); }
+        }, 300);
+    }
+
+    // Filter
+    function filterByType(type) {
+        currentFilter = currentFilter === type ? null : type;
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        if (currentFilter) {
+            event.currentTarget.classList.add('active');
+        } else {
+            document.querySelector('.nav-item').classList.add('active');
+        }
+        renderFiles(currentFiles);
+    }
+
+    // Storage
+    async function loadStorage() {
+        try {
+            const s = await api('/api/storage');
+            const pct = parseFloat(s.total > 0 ? ((s.used / s.total) * 100).toFixed(1) : 0);
+            
+            const bar = document.getElementById('storageBar');
+            bar.style.width = pct + '%';
+            
+            // Premium color-coded warning system
+            if (pct < 80) {
+                bar.style.background = 'linear-gradient(90deg, var(--accent), var(--accent-blue))';
+            } else if (pct < 90) {
+                bar.style.background = 'linear-gradient(90deg, var(--accent-orange), var(--accent-yellow))';
+            } else {
+                bar.style.background = 'linear-gradient(90deg, var(--accent-red), var(--accent-orange))';
+            }
+
+            const usedStr = i18n[currentLang].used;
+            const freeStr = i18n[currentLang].free;
+            
+            document.getElementById('storageUsed').textContent = `${usedStr}: ${formatSize(s.used)} (${pct}%)`;
+            document.getElementById('storageFree').textContent = `${freeStr}: ${formatSize(s.free)}`;
+            document.getElementById('hostname').textContent = s.hostname;
+        } catch (e) {}
+    }
+
+    // Server Status Dashboard Modal
+    async function showSystemStatus() {
+        try {
+            const s = await api('/api/storage');
+            const pct = s.total > 0 ? ((s.used / s.total) * 100).toFixed(1) : 0;
+            const freePct = s.total > 0 ? ((s.free / s.total) * 100).toFixed(1) : 0;
+            const uptimeFormatted = formatUptime(s.uptime);
+            
+            let platformIcon = 'computer';
+            let platformName = s.platform;
+            if (s.platform.toLowerCase().includes('win')) {
+                platformIcon = 'desktop_windows';
+                platformName = 'Windows';
+            } else if (s.platform.toLowerCase().includes('linux')) {
+                platformIcon = 'terminal';
+                platformName = 'Linux / Ubuntu';
+            } else if (s.platform.toLowerCase().includes('darwin')) {
+                platformIcon = 'desktop_mac';
+                platformName = 'macOS';
+            }
+
+            const modalHtml = `
+                <div class="system-status-dashboard">
+                    <div class="system-header">
+                        <span class="material-icons-round" style="font-size:28px; color:var(--accent)">settings_suggest</span>
+                        <h3 style="margin:0">${i18n[currentLang].serverStatusTitle}</h3>
+                    </div>
+                    <div class="system-grid">
+                        <div class="system-card">
+                            <span class="material-icons-round card-icon" style="color:var(--accent)">dns</span>
+                            <div class="card-content">
+                                <div class="card-label">${i18n[currentLang].hostname}</div>
+                                <div class="card-val">${s.hostname}</div>
+                            </div>
+                        </div>
+                        <div class="system-card">
+                            <span class="material-icons-round card-icon" style="color:var(--accent-blue)">${platformIcon}</span>
+                            <div class="card-content">
+                                <div class="card-label">${i18n[currentLang].os}</div>
+                                <div class="card-val">${platformName} (${s.platform})</div>
+                            </div>
+                        </div>
+                        <div class="system-card">
+                            <span class="material-icons-round card-icon" style="color:var(--accent-orange)">schedule</span>
+                            <div class="card-content">
+                                <div class="card-label">${i18n[currentLang].uptime}</div>
+                                <div class="card-val">${uptimeFormatted}</div>
+                            </div>
+                        </div>
+                        <div class="system-card full-width">
+                            <span class="material-icons-round card-icon" style="color:var(--accent-purple)">folder_shared</span>
+                            <div class="card-content">
+                                <div class="card-label">${i18n[currentLang].path}</div>
+                                <div class="card-val path-val" title="${s.nasRoot}">${s.nasRoot}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="system-storage-section">
+                        <h4 style="margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+                            <span class="material-icons-round" style="color:var(--accent-blue)">pie_chart</span>
+                            <span>${i18n[currentLang].storage}</span>
+                        </h4>
+                        <div class="storage-dashboard-bar">
+                            <div class="storage-db-fill used" style="width:${pct}%" title="${i18n[currentLang].used}: ${pct}%"></div>
+                            <div class="storage-db-fill free" style="width:${freePct}%" title="${i18n[currentLang].free}: ${freePct}%"></div>
+                        </div>
+                        <div class="storage-details-grid">
+                            <div class="storage-detail-item used">
+                                <span class="dot"></span>
+                                <div class="detail-info">
+                                    <div class="detail-label">${i18n[currentLang].used}</div>
+                                    <div class="detail-val">${formatSize(s.used)} <span class="pct">(${pct}%)</span></div>
+                                </div>
+                            </div>
+                            <div class="storage-detail-item free">
+                                <span class="dot"></span>
+                                <div class="detail-info">
+                                    <div class="detail-label">${i18n[currentLang].free}</div>
+                                    <div class="detail-val">${formatSize(s.free)} <span class="pct">(${freePct}%)</span></div>
+                                </div>
+                            </div>
+                            <div class="storage-detail-item total">
+                                <span class="dot"></span>
+                                <div class="detail-info">
+                                    <div class="detail-label">${i18n[currentLang].total}</div>
+                                    <div class="detail-val">${formatSize(s.total)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-actions" style="margin-top:24px">
+                        <button class="primary" onclick="hideModal()">${i18n[currentLang].close}</button>
+                    </div>
+                </div>
+            `;
+            showModal(modalHtml);
+        } catch(e) {
+            showToast(e.message, 'error');
+        }
+    }
+
+    function formatUptime(seconds) {
+        const d = Math.floor(seconds / (3600*24));
+        const h = Math.floor((seconds % (3600*24)) / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+
+        let parts = [];
+        if (d > 0) parts.push(`${d} ${i18n[currentLang].days}`);
+        if (h > 0) parts.push(`${h} ${i18n[currentLang].hours}`);
+        if (m > 0) parts.push(`${m} ${i18n[currentLang].minutes}`);
+        if (d === 0 && h === 0 && m === 0) parts.push(`${s} ${i18n[currentLang].seconds}`);
+        return parts.join(' ');
+    }
+
+    // View mode
+    function setView(mode) {
+        viewMode = mode;
+        document.getElementById('gridViewBtn').classList.toggle('active', mode === 'grid');
+        document.getElementById('listViewBtn').classList.toggle('active', mode === 'list');
+        renderFiles(currentFiles);
+    }
+
+    function selectFile(el, e) {
+        if (!e.ctrlKey && !e.metaKey) document.querySelectorAll('.file-card.selected,.file-list-item.selected').forEach(c => c.classList.remove('selected'));
+        el.classList.toggle('selected');
+    }
+
+    // Modal
+    function showModal(html) {
+        document.getElementById('modalContent').innerHTML = html;
+        document.getElementById('modalOverlay').classList.add('show');
+    }
+    function hideModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+    document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) hideModal(); });
+
+    // Toast
+    function showToast(msg, type = 'success') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `<span class="material-icons-round" style="font-size:18px">${type === 'success' ? 'check_circle' : 'error'}</span> ${escHtml(msg)}`;
+        container.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+    }
+
+    // Utils
+    function formatSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+    function formatSpeed(bytesPerSec) {
+        if (!bytesPerSec || bytesPerSec <= 0) return '--';
+        if (bytesPerSec >= 1024 * 1024 * 1024) return (bytesPerSec / (1024*1024*1024)).toFixed(1) + ' GB/s';
+        if (bytesPerSec >= 1024 * 1024) return (bytesPerSec / (1024*1024)).toFixed(1) + ' MB/s';
+        if (bytesPerSec >= 1024) return (bytesPerSec / 1024).toFixed(0) + ' KB/s';
+        return bytesPerSec.toFixed(0) + ' B/s';
+    }
+    function formatDuration(seconds) {
+        if (!seconds || seconds <= 0) return '0s';
+        if (seconds < 60) return Math.ceil(seconds) + 's';
+        if (seconds < 3600) return Math.floor(seconds / 60) + 'm ' + Math.ceil(seconds % 60) + 's';
+        return Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
+    }
+    function addTransferHistory(name, speed, size) {
+        transferHistory.unshift({ name, speed, size, time: new Date() });
+        if (transferHistory.length > 10) transferHistory.pop();
+    }
+    function showUploadHistory() {
+        const histDiv = document.getElementById('uploadHistory');
+        const listDiv = document.getElementById('uploadHistoryList');
+        if (transferHistory.length === 0) { histDiv.style.display = 'none'; return; }
+        histDiv.style.display = 'block';
+        listDiv.innerHTML = transferHistory.slice(0, 5).map(h => `
+            <div class="transfer-history-item">
+                <span class="th-name">${escHtml(h.name)}</span>
+                <span class="th-speed">${formatSpeed(h.speed)}</span>
+            </div>
+        `).join('');
+    }
+    function formatDate(iso) {
+        const d = new Date(iso);
+        return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    }
+    function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function esc(f) { return JSON.stringify(f).replace(/'/g, '&#39;').replace(/"/g, "'"); }
+    </script>
+</body>
+</html>
