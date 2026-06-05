@@ -310,7 +310,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Security: prevent path traversal
 function safePath(userPath) {
     const resolved = path.resolve(NAS_ROOT, userPath || '');
-    if (!resolved.startsWith(path.resolve(NAS_ROOT))) {
+    const rootResolved = path.resolve(NAS_ROOT);
+    const relative = path.relative(rootResolved, resolved);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
         throw new Error('Access denied: path traversal detected');
     }
     return resolved;
@@ -454,6 +456,9 @@ app.get('/api/preview', (req, res) => {
     try {
         const filePath = safePath(req.query.path);
         const stat = fs.statSync(filePath);
+        if (stat.isDirectory()) {
+            return res.status(400).json({ error: 'Cannot preview a directory' });
+        }
         const mimeType = mime.lookup(filePath) || 'application/octet-stream';
         
         // Handle range requests for video streaming
