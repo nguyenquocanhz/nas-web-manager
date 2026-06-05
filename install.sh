@@ -95,6 +95,25 @@ if [ ! -f .env ]; then
   read -p "Đường dẫn thư mục chứa file NAS (NAS_ROOT) [mặc định: /mnt/nas]: " nas_root
   nas_root=${nas_root:-/mnt/nas}
 
+  # Prompt for SMTP configuration
+  echo -e "${YELLOW}--- Cấu hình Gmail SMTP để Khôi phục Mật khẩu ---${NC}"
+  read -p "Bạn muốn sử dụng Gmail SMTP để khôi phục mật khẩu? (y/n) [mặc định: n]: " use_gmail_smtp
+  if [[ $use_gmail_smtp =~ ^[Yy]$ ]]; then
+    smtp_host="smtp.gmail.com"
+    smtp_port="587"
+    read -p "Địa chỉ Gmail của bạn (ví dụ: user@gmail.com): " smtp_user
+    read -sp "Mật khẩu ứng dụng Gmail (App Password): " smtp_pass
+    echo ""
+    read -p "Email người gửi (FROM) [mặc định: $smtp_user]: " smtp_from
+    smtp_from=${smtp_from:-$smtp_user}
+  else
+    smtp_host=""
+    smtp_port=""
+    smtp_user=""
+    smtp_pass=""
+    smtp_from=""
+  fi
+
   # Write variables to .env
   cat <<EOT > .env
 PORT=$app_port
@@ -107,6 +126,12 @@ DB_PORT=$db_port
 DB_USER=$db_user
 DB_PASSWORD=$db_password
 DB_NAME=$db_name
+
+SMTP_HOST=$smtp_host
+SMTP_PORT=$smtp_port
+SMTP_USER=$smtp_user
+SMTP_PASSWORD=$smtp_pass
+SMTP_FROM="$smtp_from"
 EOT
   echo -e "${GREEN}[+] Đã lưu cấu hình vào file .env.${NC}"
 else

@@ -8,7 +8,34 @@ const archiver = require('archiver');
 const os = require('os');
 const { execSync } = require('child_process');
 const session = require('express-session');
-const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+
+function md5(text) {
+    return crypto.createHash('md5').update(text).digest('hex');
+}
+
+// Setup NodeMailer Transporter
+function getMailTransporter() {
+    const host = process.env.SMTP_HOST;
+    const port = parseInt(process.env.SMTP_PORT || '587');
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+
+    if (!host || !user || !pass) {
+        return null; // SMTP is not configured
+    }
+
+    return nodemailer.createTransport({
+        host,
+        port,
+        secure: port === 465, // true for 465, false for other ports
+        auth: {
+            user,
+            pass
+        }
+    });
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -47,12 +74,14 @@ function getLocalUsers() {
                 {
                     id: 1,
                     username: 'admin',
-                    password: bcrypt.hashSync('anhanh123', 10)
+                    password: md5('anhanh123'),
+                    email: 'admin@nas.local'
                 },
                 {
                     id: 2,
                     username: 'nqatech',
-                    password: bcrypt.hashSync('anhanh123', 10)
+                    password: md5('anhanh123'),
+                    email: 'nqatech@nas.local'
                 }
             ];
             fs.writeFileSync(USER_FILE, JSON.stringify(defaultUsers, null, 4));
@@ -79,6 +108,88 @@ async function findUserByUsername(username) {
         const users = getLocalUsers();
         return users.find(u => u.username.toLowerCase() === username.toLowerCase()) || null;
     }
+}
+
+async function findUserByEmail(email) {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (useMySQL && db) {
+        try {
+            const [rows] = await db.query('SELECT * FROM users WHERE LOWER(email) = ?', [cleanEmail]);
+            return rows[0] || null;
+        } catch (e) {
+            console.error('[ERROR] MySQL query failed, falling back to local file:', e.message);
+            const users = getLocalUsers();
+            return users.find(u => (u.email || '').toLowerCase() === cleanEmail) || null;
+        }
+    } else {
+        const users = getLocalUsers();
+        return users.find(u => (u.email || '').toLowerCase() === cleanEmail) || null;
+    }
+}
+
+async function findUserByResetToken(token) {
+    if (!token) return null;
+    if (useMySQL && db) {
+        try {
+            const [rows] = await db.query('SELECT * FROM users WHERE reset_token = ?', [token]);
+            return rows[0] || null;
+        } catch (e) {
+            console.error('[ERROR] MySQL query failed, falling back to local file:', e.message);
+        }
+    }
+    const users = getLocalUsers();
+    return users.find(u => u.resetToken === token) || null;
+}
+
+async function updateUserPasswordReset(userId, token, expires) {
+    if (useMySQL && db) {
+        try {
+            await db.query('UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?', [token, expires, userId]);
+            return true;
+        } catch (e) {
+            console.error('[ERROR] MySQL update failed:', e.message);
+        }
+    }
+    // Fallback to updating in local file
+    try {
+        const users = getLocalUsers();
+        const user = users.find(u => u.id === userId);
+        if (user) {
+            user.resetToken = token;
+            user.resetExpires = expires ? (expires instanceof Date ? expires.toISOString() : expires) : null;
+            fs.writeFileSync(USER_FILE, JSON.stringify(users, null, 4));
+            return true;
+        }
+    } catch (e) {
+        console.error('[ERROR] Local user update failed:', e.message);
+    }
+    return false;
+}
+
+async function updateUserPassword(userId, passwordHash) {
+    if (useMySQL && db) {
+        try {
+            await db.query('UPDATE users SET password = ?, reset_token = NULL, reset_expires = NULL WHERE id = ?', [passwordHash, userId]);
+            return true;
+        } catch (e) {
+            console.error('[ERROR] MySQL update password failed:', e.message);
+        }
+    }
+    // Fallback
+    try {
+        const users = getLocalUsers();
+        const user = users.find(u => u.id === userId);
+        if (user) {
+            user.password = passwordHash;
+            delete user.resetToken;
+            delete user.resetExpires;
+            fs.writeFileSync(USER_FILE, JSON.stringify(users, null, 4));
+            return true;
+        }
+    } catch(e) {
+        console.error('[ERROR] Local user update password failed:', e.message);
+    }
+    return false;
 }
 
 async function initDB() {
@@ -116,16 +227,36 @@ async function initDB() {
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 username VARCHAR(50) NOT NULL UNIQUE,
                 password VARCHAR(255) NOT NULL,
+                email VARCHAR(100) UNIQUE,
+                reset_token VARCHAR(255),
+                reset_expires TIMESTAMP NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         `);
 
+        // Migration helper: dynamically add new columns if they do not exist
+        try {
+            await db.query(`ALTER TABLE users ADD COLUMN email VARCHAR(100) UNIQUE AFTER password;`);
+        } catch(e) {}
+        try {
+            await db.query(`ALTER TABLE users ADD COLUMN reset_token VARCHAR(255) AFTER email;`);
+        } catch(e) {}
+        try {
+            await db.query(`ALTER TABLE users ADD COLUMN reset_expires TIMESTAMP NULL AFTER reset_token;`);
+        } catch(e) {}
+
         const [rows] = await db.query('SELECT COUNT(*) as count FROM users');
         if (rows[0].count === 0) {
-            const adminPass = bcrypt.hashSync('anhanh123', 10);
-            await db.query('INSERT INTO users (username, password) VALUES (?, ?)', ['admin', adminPass]);
-            await db.query('INSERT INTO users (username, password) VALUES (?, ?)', ['nqatech', adminPass]);
+            const adminPass = md5('anhanh123');
+            await db.query('INSERT INTO users (username, password, email) VALUES (?, ?, ?)', ['admin', adminPass, 'admin@nas.local']);
+            await db.query('INSERT INTO users (username, password, email) VALUES (?, ?, ?)', ['nqatech', adminPass, 'nqatech@nas.local']);
             console.log('[INFO] Seeded default users (admin, nqatech) in MySQL.');
+        } else {
+            // Check if existing users need to be updated with seed emails
+            try {
+                await db.query(`UPDATE users SET email = 'admin@nas.local' WHERE username = 'admin' AND (email IS NULL OR email = '');`);
+                await db.query(`UPDATE users SET email = 'nqatech@nas.local' WHERE username = 'nqatech' AND (email IS NULL OR email = '');`);
+            } catch(e) {}
         }
         console.log('[INFO] Connected to MySQL database successfully.');
     } catch(err) {
@@ -138,7 +269,7 @@ async function initDB() {
 
 // Authentication Protection Middleware
 app.use((req, res, next) => {
-    const publicPaths = ['/login', '/api/auth/login', '/api/auth/status'];
+    const publicPaths = ['/login', '/reset-password.html', '/api/auth/login', '/api/auth/status'];
     if (publicPaths.includes(req.path) || req.path.startsWith('/api/auth/')) {
         return next();
     }
@@ -509,7 +640,7 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid username or password' });
         }
         
-        const valid = bcrypt.compareSync(password, user.password);
+        const valid = (md5(password) === user.password);
         if (!valid) {
             return res.status(401).json({ error: 'Invalid username or password' });
         }
@@ -517,6 +648,116 @@ app.post('/api/auth/login', async (req, res) => {
         req.session.userId = user.id;
         req.session.username = user.username;
         res.json({ success: true, username: user.username });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Auth: Forgot Password
+app.post('/api/auth/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        const user = await findUserByEmail(email);
+        if (!user) {
+            // Security: don't reveal user existence
+            return res.json({ success: true, message: 'If the email exists, a reset link has been generated.' });
+        }
+
+        const token = crypto.randomBytes(20).toString('hex');
+        const expires = new Date(Date.now() + 3600000); // 1 hour
+
+        await updateUserPasswordReset(user.id, token, expires);
+
+        const resetUrl = `${req.protocol}://${req.get('host')}/reset-password.html?token=${token}`;
+        
+        const transporter = getMailTransporter();
+        if (transporter) {
+            const mailOptions = {
+                from: process.env.SMTP_FROM || '"NAS Server" <noreply@nas.local>',
+                to: email,
+                subject: 'NAS Server Password Reset Request',
+                text: `You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n` +
+                      `Please click on the following link, or paste this into your browser to complete the process:\n\n` +
+                      `${resetUrl}\n\n` +
+                      `If you did not request this, please ignore this email and your password will remain unchanged.\n`,
+                html: `<div style="font-family: sans-serif; padding: 20px; color: #333;">` +
+                      `<h2>Khôi phục mật khẩu máy chủ NAS</h2>` +
+                      `<p>Bạn nhận được email này vì đã yêu cầu đặt lại mật khẩu cho tài khoản tại NAS Web Manager.</p>` +
+                      `<p>Vui lòng nhấn vào nút dưới đây để tiến hành thiết lập mật khẩu mới (liên kết có hiệu lực trong 1 giờ):</p>` +
+                      `<div style="margin: 20px 0;"><a href="${resetUrl}" style="background-color: #4ecca3; color: #0a0e1a; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Khôi phục mật khẩu</a></div>` +
+                      `<p>Nếu không thực hiện yêu cầu này, bạn có thể bỏ qua email và mật khẩu vẫn sẽ giữ nguyên.</p>` +
+                      `</div>`
+            };
+
+            await transporter.sendMail(mailOptions);
+            console.log(`[INFO] Password reset email sent to ${email}`);
+        } else {
+            console.log(`\n  ╔══════════════════════════════════════════╗`);
+            console.log(`  ║   ⚠️  SMTP NOT CONFIGURED               ║`);
+            console.log(`  ╠══════════════════════════════════════════╣`);
+            console.log(`  ║   Reset Link for ${user.username.padEnd(23)} ║`);
+            console.log(`  ║   ${resetUrl.padEnd(38)} ║`);
+            console.log(`  ╚══════════════════════════════════════════╝\n`);
+        }
+
+        res.json({ success: true, message: 'If the email exists, a reset link has been generated.' });
+    } catch(e) {
+        console.error('[ERROR] Forgot password request failed:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Auth: Verify Token
+app.get('/api/auth/verify-token', async (req, res) => {
+    try {
+        const { token } = req.query;
+        if (!token) {
+            return res.status(400).json({ error: 'Token is required' });
+        }
+
+        const user = await findUserByResetToken(token);
+        if (!user) {
+            return res.status(400).json({ error: 'Invalid or expired token' });
+        }
+
+        const expires = new Date(user.reset_expires || user.resetExpires);
+        if (expires < new Date()) {
+            return res.status(400).json({ error: 'Token has expired' });
+        }
+
+        res.json({ success: true, username: user.username });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Auth: Reset Password
+app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+        const { token, password } = req.body;
+        if (!token || !password) {
+            return res.status(400).json({ error: 'Token and new password are required' });
+        }
+
+        const user = await findUserByResetToken(token);
+        if (!user) {
+            return res.status(400).json({ error: 'Invalid or expired token' });
+        }
+
+        const expires = new Date(user.reset_expires || user.resetExpires);
+        if (expires < new Date()) {
+            return res.status(400).json({ error: 'Token has expired' });
+        }
+
+        const newHash = md5(password);
+        await updateUserPassword(user.id, newHash);
+        
+        console.log(`[INFO] Password reset successful for user: ${user.username}`);
+        res.json({ success: true });
     } catch(e) {
         res.status(500).json({ error: e.message });
     }
