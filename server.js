@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -6,6 +7,8 @@ const mime = require('mime-types');
 const archiver = require('archiver');
 const os = require('os');
 const { execSync } = require('child_process');
+const session = require('express-session');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,7 +21,143 @@ if (!fs.existsSync(NAS_ROOT)) {
     fs.mkdirSync(NAS_ROOT, { recursive: true });
 }
 
+// Session configuration
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'nas_secure_secret_key_987654321',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        secure: false // true if running on HTTPS
+    }
+}));
+
 app.use(express.json());
+
+// Database Wrapper & Initialization
+let db = null;
+let useMySQL = process.env.USE_MYSQL === 'true';
+const USER_FILE = path.join(NAS_ROOT, 'users.json');
+
+// Local user store fallback
+function getLocalUsers() {
+    try {
+        if (!fs.existsSync(USER_FILE)) {
+            const defaultUsers = [
+                {
+                    id: 1,
+                    username: 'admin',
+                    password: bcrypt.hashSync('anhanh123', 10)
+                },
+                {
+                    id: 2,
+                    username: 'nqatech',
+                    password: bcrypt.hashSync('anhanh123', 10)
+                }
+            ];
+            fs.writeFileSync(USER_FILE, JSON.stringify(defaultUsers, null, 4));
+            return defaultUsers;
+        }
+        return JSON.parse(fs.readFileSync(USER_FILE, 'utf8'));
+    } catch(e) {
+        return [];
+    }
+}
+
+async function findUserByUsername(username) {
+    if (useMySQL && db) {
+        try {
+            const [rows] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+            return rows[0] || null;
+        } catch (e) {
+            console.error('[ERROR] MySQL query failed, falling back to local file:', e.message);
+            // Dynamic fallback on query failure
+            const users = getLocalUsers();
+            return users.find(u => u.username.toLowerCase() === username.toLowerCase()) || null;
+        }
+    } else {
+        const users = getLocalUsers();
+        return users.find(u => u.username.toLowerCase() === username.toLowerCase()) || null;
+    }
+}
+
+async function initDB() {
+    if (!useMySQL) {
+        console.log('[INFO] Using local JSON file user store (MySQL disabled).');
+        getLocalUsers(); // Ensure files & seed users exist
+        return;
+    }
+
+    try {
+        const mysql = require('mysql2/promise');
+        const connection = await mysql.createConnection({
+            host: process.env.DB_HOST || '127.0.0.1',
+            port: process.env.DB_PORT || 3306,
+            user: process.env.DB_USER || 'root',
+            password: process.env.DB_PASSWORD || ''
+        });
+        
+        await connection.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME || 'nas_manager'}\`;`);
+        await connection.end();
+        
+        db = await mysql.createPool({
+            host: process.env.DB_HOST || '127.0.0.1',
+            port: process.env.DB_PORT || 3306,
+            user: process.env.DB_USER || 'root',
+            password: process.env.DB_PASSWORD || '',
+            database: process.env.DB_NAME || 'nas_manager',
+            waitForConnections: true,
+            connectionLimit: 10,
+            queueLimit: 0
+        });
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(50) NOT NULL UNIQUE,
+                password VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        `);
+
+        const [rows] = await db.query('SELECT COUNT(*) as count FROM users');
+        if (rows[0].count === 0) {
+            const adminPass = bcrypt.hashSync('anhanh123', 10);
+            await db.query('INSERT INTO users (username, password) VALUES (?, ?)', ['admin', adminPass]);
+            await db.query('INSERT INTO users (username, password) VALUES (?, ?)', ['nqatech', adminPass]);
+            console.log('[INFO] Seeded default users (admin, nqatech) in MySQL.');
+        }
+        console.log('[INFO] Connected to MySQL database successfully.');
+    } catch(err) {
+        console.error('[ERROR] Failed to connect to MySQL database:', err.message);
+        console.log('[INFO] Falling back to local JSON file user store.');
+        useMySQL = false;
+        getLocalUsers(); // initialize local file
+    }
+}
+
+// Authentication Protection Middleware
+app.use((req, res, next) => {
+    const publicPaths = ['/login', '/api/auth/login', '/api/auth/status'];
+    if (publicPaths.includes(req.path) || req.path.startsWith('/api/auth/')) {
+        return next();
+    }
+    
+    // Allow static files like styles, images, fonts (needed for login page)
+    if (req.path !== '/' && req.path !== '/index.html' && !req.path.startsWith('/api/')) {
+        return next();
+    }
+    
+    if (!req.session || !req.session.userId) {
+        if (req.path.startsWith('/api/')) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        return res.redirect('/login');
+    }
+    next();
+});
+
+// Serve static files after auth middleware
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Security: prevent path traversal
@@ -349,16 +488,76 @@ app.get('/api/search', (req, res) => {
     }
 });
 
+// Auth: Status
+app.get('/api/auth/status', (req, res) => {
+    res.json({
+        loggedIn: !!(req.session && req.session.userId),
+        username: req.session ? req.session.username : null
+    });
+});
+
+// Auth: Login
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Username and password are required' });
+        }
+        
+        const user = await findUserByUsername(username.trim());
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid username or password' });
+        }
+        
+        const valid = bcrypt.compareSync(password, user.password);
+        if (!valid) {
+            return res.status(401).json({ error: 'Invalid username or password' });
+        }
+        
+        req.session.userId = user.id;
+        req.session.username = user.username;
+        res.json({ success: true, username: user.username });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Auth: Logout
+app.post('/api/auth/logout', (req, res) => {
+    if (req.session) {
+        req.session.destroy(err => {
+            if (err) {
+                return res.status(500).json({ error: 'Logout failed' });
+            }
+            res.clearCookie('connect.sid');
+            res.json({ success: true });
+        });
+    } else {
+        res.json({ success: true });
+    }
+});
+
+// Login Page route
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
 // Serve index.html for all other routes
 app.get('*', (req, res) => {
+    if (!req.session || !req.session.userId) {
+        return res.redirect('/login');
+    }
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n  ╔══════════════════════════════════════════╗`);
-    console.log(`  ║   🗂️  NAS Web File Manager                ║`);
-    console.log(`  ╠══════════════════════════════════════════╣`);
-    console.log(`  ║   URL:  http://localhost:${PORT}             ║`);
-    console.log(`  ║   NAS:  ${NAS_ROOT.padEnd(32)}║`);
-    console.log(`  ╚══════════════════════════════════════════╝\n`);
+// Start Database and Server
+initDB().then(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`\n  ╔══════════════════════════════════════════╗`);
+        console.log(`  ║   🗂️  NAS Web File Manager                ║`);
+        console.log(`  ╠══════════════════════════════════════════╣`);
+        console.log(`  ║   URL:  http://localhost:${PORT}             ║`);
+        console.log(`  ║   NAS:  ${NAS_ROOT.padEnd(32)}║`);
+        console.log(`  ╚══════════════════════════════════════════╝\n`);
+    });
 });

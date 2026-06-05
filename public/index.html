@@ -799,6 +799,10 @@
                         <span style="font-size:10px; color:var(--text-muted);" data-i18n="serverStatusNav">Trạng thái máy chủ</span>
                     </div>
                 </div>
+                <div class="nav-item" id="navLogout" onclick="handleLogout()" style="cursor:pointer; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; color: var(--accent-red)">
+                    <span class="material-icons-round">logout</span>
+                    <span data-i18n="logout">Đăng xuất</span>
+                </div>
             </nav>
         </aside>
 
@@ -1042,7 +1046,8 @@
             resultsCount: "kết quả",
             confirmDelete: "Xóa \"{name}\"?",
             functions: "Chức năng",
-            filters: "Bộ lọc"
+            filters: "Bộ lọc",
+            logout: "Đăng xuất"
         },
         en: {
             allFiles: "All Files",
@@ -1098,7 +1103,8 @@
             resultsCount: "results",
             confirmDelete: "Delete \"{name}\"?",
             functions: "Functions",
-            filters: "Filters"
+            filters: "Filters",
+            logout: "Log Out"
         }
     };
 
@@ -1236,11 +1242,25 @@
     // API Helpers
     async function api(url, opts = {}) {
         const res = await fetch(url, opts);
+        if (res.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
         if (!res.ok) {
             const err = await res.json().catch(() => ({ error: 'Request failed' }));
             throw new Error(err.error || 'Request failed');
         }
         return res.json();
+    }
+
+    async function handleLogout() {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/login';
+        } catch (err) {
+            console.error('Logout error:', err);
+            window.location.href = '/login';
+        }
     }
 
     // Load files

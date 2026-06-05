@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NAS Server Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #101628;
+            --bg-surface: #151b2e;
+            --bg-card: #1a2240;
+            --bg-input: #0d1220;
+            --accent: #4ecca3;
+            --accent-hover: #45b892;
+            --accent-blue: #5b8def;
+            --accent-red: #ff6b6b;
+            --text-primary: #e8eaf0;
+            --text-secondary: #8892a8;
+            --text-muted: #5a6478;
+            --border: rgba(255,255,255,0.06);
+            --border-active: rgba(78,204,163,0.4);
+            --glass: rgba(21,27,46,0.7);
+            --shadow-lg: 0 16px 48px rgba(0,0,0,0.5);
+            --radius: 16px;
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: radial-gradient(circle at 50% 50%, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Abstract glowing blobs for premium feel */
+        .glowing-blob {
+            position: absolute; width: 400px; height: 400px;
+            border-radius: 50%; filter: blur(120px);
+            z-index: 1; opacity: 0.15;
+            animation: float 12s infinite alternate ease-in-out;
+        }
+        .blob-1 { background: var(--accent); top: -100px; left: -100px; }
+        .blob-2 { background: var(--accent-blue); bottom: -100px; right: -100px; }
+        
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(50px, 50px) scale(1.2); }
+        }
+
+        /* Login Container */
+        .login-container {
+            width: 100%; max-width: 420px;
+            background: var(--glass);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 40px; z-index: 10;
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+            animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Language Switcher */
+        .lang-switcher {
+            position: absolute; right: 24px; top: 24px;
+            z-index: 20;
+        }
+        .lang-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 8px;
+            border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+            color: var(--text-primary); cursor: pointer;
+            font-size: 13px; font-weight: 500;
+            transition: var(--transition);
+        }
+        .lang-btn:hover { background: rgba(255,255,255,0.08); border-color: var(--border-active); }
+        .lang-dropdown {
+            position: absolute; right: 0; top: calc(100% + 6px);
+            background: var(--bg-surface); border: 1px solid var(--border);
+            border-radius: 8px; box-shadow: var(--shadow-lg);
+            display: none; padding: 4px; min-width: 130px;
+        }
+        .lang-dropdown.show { display: block; }
+        .lang-option {
+            padding: 8px 12px; border-radius: 6px; cursor: pointer;
+            font-size: 13px; color: var(--text-secondary);
+            transition: var(--transition); display: flex; align-items: center; gap: 8px;
+            text-align: left;
+        }
+        .lang-option:hover { background: var(--bg-card); color: var(--text-primary); }
+
+        /* Logo */
+        .logo-section {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 16px; margin-bottom: 32px;
+        }
+        .logo-icon {
+            width: 56px; height: 56px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-blue));
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px; color: white;
+            box-shadow: 0 8px 24px rgba(78, 204, 163, 0.3);
+        }
+        .logo-section h1 {
+            font-size: 22px; font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .logo-section p { font-size: 13px; color: var(--text-secondary); }
+
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 20px; text-align: left; position: relative;
+        }
+        .form-group label {
+            display: block; font-size: 11px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--text-secondary); margin-bottom: 6px;
+        }
+        .input-wrapper { position: relative; }
+        .input-wrapper .material-icons-round {
+            position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+            font-size: 20px; color: var(--text-muted);
+            transition: var(--transition);
+        }
+        .form-group input {
+            width: 100%; padding: 12px 14px 12px 44px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text-primary);
+            font-size: 14px; font-family: inherit; outline: none;
+            transition: var(--transition);
+        }
+        .form-group input:focus { border-color: var(--border-active); }
+        .form-group input:focus + .material-icons-round { color: var(--accent); }
+
+        /* Login Button */
+        .login-btn {
+            width: 100%; padding: 12px; border-radius: 8px;
+            border: none; background: var(--accent);
+            color: #0a0e1a; font-size: 14px; font-weight: 700;
+            cursor: pointer; transition: var(--transition);
+            margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .login-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+        .login-btn:active { transform: translateY(0); }
+
+        /* Alert Message */
+        .alert {
+            background: rgba(255, 107, 107, 0.1); border: 1px solid rgba(255, 107, 107, 0.2);
+            color: var(--accent-red); padding: 12px; border-radius: 8px;
+            font-size: 13px; margin-bottom: 20px; display: none;
+            align-items: center; gap: 8px; text-align: left;
+            animation: shake 0.4s ease;
+        }
+        .alert.show { display: flex; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="glowing-blob blob-1"></div>
+    <div class="glowing-blob blob-2"></div>
+
+    <!-- Language Selector -->
+    <div class="lang-switcher">
+        <button class="lang-btn" onclick="toggleLangMenu(event)">
+            <span id="currentLangIcon">🇻🇳</span> <span id="currentLangText">VI</span>
+            <span class="material-icons-round" style="font-size:16px">arrow_drop_down</span>
+        </button>
+        <div class="lang-dropdown" id="langDropdown">
+            <div class="lang-option" onclick="setLanguage('vi')">🇻🇳 Tiếng Việt</div>
+            <div class="lang-option" onclick="setLanguage('en')">🇬🇧 English</div>
+        </div>
+    </div>
+
+    <!-- Login Box -->
+    <div class="login-container">
+        <div class="logo-section">
+            <div class="logo-icon">
+                <span class="material-icons-round">dns</span>
+            </div>
+            <div>
+                <h1 data-i18n="loginTitle">Đăng nhập máy chủ NAS</h1>
+                <p data-i18n="loginDesc">Vui lòng nhập tài khoản để truy cập hệ thống</p>
+            </div>
+        </div>
+
+        <div class="alert" id="errorAlert">
+            <span class="material-icons-round" style="font-size:18px">error_outline</span>
+            <span id="errorText">Tên đăng nhập hoặc mật khẩu sai.</span>
+        </div>
+
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label for="username" data-i18n="usernameLabel">Tên đăng nhập</label>
+                <div class="input-wrapper">
+                    <input type="text" id="username" autocomplete="username" required>
+                    <span class="material-icons-round">person</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="password" data-i18n="passwordLabel">Mật khẩu</label>
+                <div class="input-wrapper">
+                    <input type="password" id="password" autocomplete="current-password" required>
+                    <span class="material-icons-round">lock</span>
+                </div>
+            </div>
+            <button type="submit" class="login-btn">
+                <span data-i18n="loginBtn">Đăng nhập</span>
+                <span class="material-icons-round">login</span>
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const i18n = {
+            vi: {
+                loginTitle: "Đăng nhập NAS Server",
+                loginDesc: "Vui lòng nhập tài khoản để truy cập tệp tin",
+                usernameLabel: "Tên đăng nhập",
+                passwordLabel: "Mật khẩu",
+                loginBtn: "Đăng nhập",
+                errorEmpty: "Vui lòng nhập đầy đủ tài khoản và mật khẩu.",
+                errorFailed: "Tên đăng nhập hoặc mật khẩu không chính xác.",
+                errorNetwork: "Lỗi kết nối tới máy chủ."
+            },
+            en: {
+                loginTitle: "NAS Server Login",
+                loginDesc: "Enter your credentials to browse files",
+                usernameLabel: "Username",
+                passwordLabel: "Password",
+                loginBtn: "Log In",
+                errorEmpty: "Username and password are required.",
+                errorFailed: "Invalid username or password.",
+                errorNetwork: "Connection error to the server."
+            }
+        };
+
+        let currentLang = localStorage.getItem('nas_lang') || 'vi';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            applyLanguage();
+            document.addEventListener('click', () => {
+                document.getElementById('langDropdown').classList.remove('show');
+            });
+        });
+
+        function toggleLangMenu(e) {
+            e.stopPropagation();
+            document.getElementById('langDropdown').classList.toggle('show');
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('nas_lang', lang);
+            applyLanguage();
+        }
+
+        function applyLanguage() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[currentLang] && i18n[currentLang][key]) {
+                    el.textContent = i18n[currentLang][key];
+                }
+            });
+
+            // Update language switcher UI
+            const flag = currentLang === 'vi' ? '🇻🇳' : '🇬🇧';
+            document.getElementById('currentLangIcon').textContent = flag;
+            document.getElementById('currentLangText').textContent = currentLang.toUpperCase();
+            document.title = i18n[currentLang].loginTitle;
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const errorAlert = document.getElementById('errorAlert');
+            const errorText = document.getElementById('errorText');
+            errorAlert.classList.remove('show');
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                errorText.textContent = i18n[currentLang].errorEmpty;
+                errorAlert.classList.add('show');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    window.location.href = '/';
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    errorText.textContent = err.error ? (currentLang === 'vi' ? 'Tên đăng nhập hoặc mật khẩu không chính xác.' : 'Invalid username or password.') : i18n[currentLang].errorFailed;
+                    errorAlert.classList.add('show');
+                }
+            } catch (err) {
+                errorText.textContent = i18n[currentLang].errorNetwork;
+                errorAlert.classList.add('show');
+            }
+        }
+    </script>
+</body>
+</html>
